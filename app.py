@@ -56,12 +56,12 @@ if 'iron_catalog' not in st.session_state:
         {"type": "מרובע מלא", "dimensions": "-", "thickness": "14 מ\"מ", "price": 50.0, "length": 600}
     ]
 
-# מבנה נתונים חדש לפרויקט: רשימה של קבוצות ברזל. כל קבוצה מכילה מזהה חומר ורשימת חיתוכים.
+# מבנה נתונים לפרויקט: קבוצות ברזל המכילות מידות פנימיות
 if 'project_groups' not in st.session_state:
     st.session_state.project_groups = [
         {
             'material_idx': 0,
-            'cuts': [{'length': 90.0, 'qty': 5}, {'length': 100.0, 'qty': 2}]
+            'cuts': [{'length': 90.0, 'qty': 5}]
         }
     ]
 
@@ -166,17 +166,18 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         "זווית": t_angle, "עגול מלא": t_round_full, "מרובע מלא": t_square_full
     }
     
-    df_global = pd.DataFrame(st.session_state.iron_catalog)
-    
-    for iron_type, tab_obj in types_mapping.items():
-        with tab_obj:
-            df_filtered = df_global[df_global['type'] == iron_type]
-            if not df_filtered.empty:
-                df_view = df_filtered.copy()
-                df_view.columns = ["סוג ברזל", "מידות", "עובי ברזל", "מחיר קנייה", "אורך מוט (ס\"מ)"]
-                st.dataframe(df_view, use_container_width=True, hide_index=False)
-            else:
-                st.info(f"אין כרגע פריטים מסוג {iron_type} במחירון.")
+    if st.session_state.iron_catalog:
+        df_global = pd.DataFrame(st.session_state.iron_catalog)
+        
+        for iron_type, tab_obj in types_mapping.items():
+            with tab_obj:
+                df_filtered = df_global[df_global['type'] == iron_type]
+                if not df_filtered.empty:
+                    df_view = df_filtered.copy()
+                    df_view.columns = ["סוג ברזל", "מידות", "עובי ברזל", "מחיר קנייה", "אורך מוט (ס\"מ)"]
+                    st.dataframe(df_view, use_container_width=True, hide_index=False)
+                else:
+                    st.info(f"אין כרגע פריטים מסוג {iron_type} במחירון.")
                 
     st.markdown("---")
     st.subheader("🗑️ הסרת פריט מהמחירון הכללי")
@@ -189,7 +190,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             st.rerun()
 
 # =============================================================================
-# עמוד 2: מחשבון פרויקט משודרג (קבוצות חומרים ורשימות מידות פנימיות)
+# עמוד 2: מחשבון פרויקט משודרג ומרוכז (ללא באגים)
 # =============================================================================
 else:
     st.title("📊 חישוב פרויקט לפי סוגי פרופיל מרוכזים")
@@ -205,10 +206,9 @@ else:
         with tab_multi_manual:
             st.write("בחר סוג ברזל פעם אחת, והוסף תחתיו את כל גדלי החיתוכים השונים שאתה צריך ממנו לפרויקט.")
             
-            # כפתורי ניהול קבוצות חומרים ראשיות
             col_g1, col_g2 = st.columns(2)
             with col_g1:
-                if st.button("➕ הוסף קבוצת ברזל חדשה פרויקט"):
+                if st.button("➕ הוסף קבוצת ברזל חדשה לפרויקט"):
                     st.session_state.project_groups.append({
                         'material_idx': 0,
                         'cuts': [{'length': 100.0, 'qty': 1}]
@@ -219,12 +219,10 @@ else:
                     st.session_state.project_groups.pop()
                     st.rerun()
             
-            # ריצה על קבוצות החומרים
             for g_idx, group in enumerate(st.session_state.project_groups):
                 st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
                 st.subheader(f"🛠️ קבוצת ברזל #{g_idx + 1}")
                 
-                # בחירת החומר עבור כל הקבוצה
                 group['material_idx'] = st.selectbox(
                     f"בחר את סוג הברזל לקבוצה זו:",
                     range(len(material_labels)),
@@ -235,7 +233,6 @@ else:
                 
                 st.write("**📏 מידות חיתוך מבוקשות לסוג ברזל זה:**")
                 
-                # כפתורים פנימיים להוספת/מחיקת שורות מידה בתוך הקבוצה הספציפית
                 sub_c1, sub_c2 = st.columns([1, 5])
                 with sub_c1:
                     if st.button(f"➕ הוסף מידה", key=f"add_cut_{g_idx}"):
@@ -246,7 +243,6 @@ else:
                         group['cuts'].pop()
                         st.rerun()
                 
-                # הדפסת שורות המידה והכמות בתוך הקבוצה
                 for c_idx, cut in enumerate(group['cuts']):
                     col_l, col_q = st.columns(2)
                     with col_l:
@@ -266,17 +262,13 @@ else:
                 st.markdown("</div>", unsafe_allow_html=True)
                 st.markdown("---")
 
-            # כפתור חישוב סופי לפרויקט המשודרג
             if st.button("🚀 חשב ותמחר פרויקט שלם", type="primary", key="calc_group_project"):
                 total_project_cost = 0.0
                 has_errors = False
                 all_plans_results = []
                 
-                # עיבוד וחישוב לפי קבוצות
                 for g_idx, group in enumerate(st.session_state.project_groups):
                     mat_data = st.session_state.iron_catalog[group['material_idx']]
-                    
-                    # הרצת האלגוריתם על רשימת המידות המרוכזת של החומר
                     bars_plan, err = calculate_optimal_cutting(group['cuts'], mat_data['length'])
                     
                     if err:
@@ -296,7 +288,6 @@ else:
                 
                 if not has_errors:
                     final_client_price = total_project_cost * (1 + profit_margin / 100)
-                    
                     st.success("🔥 חישוב פרויקט מרוכז הושלם בהצלחה!")
                     
                     m1, m2 = st.columns(2)
@@ -322,7 +313,7 @@ else:
                             })
                         st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
 
-        # --- טאב 2: ניתוח שרטוטים (AI) ---
+        # --- טאב 2: ניתוח שרטוטים (AI עם שם דגם מתוקן רשמית) ---
         with tab_ai_drawing:
             st.subheader("📸 ניתוח שרטוט כולל מהשטח באמצעות AI")
             
@@ -338,7 +329,8 @@ else:
                     else:
                         with st.spinner("ה-AI מנתח את השרטוט ומחלץ את כל סוגי המידות..."):
                             try:
-                                model = genai.GenerativeModel('gemini-1.5-flash')
+                                # תיקון 404: שימוש בשם הדגם הרשמי והנכון במערכת גוגל
+                                model = genai.GenerativeModel('gemini-1.5-flash-latest')
                                 
                                 prompt = """
                                 You are an expert metal welding estimator. Scan this uploaded image carefully.
@@ -354,9 +346,7 @@ else:
                                 if "detected_items" in result_data and len(result_data["detected_items"]) > 0:
                                     st.success("🎉 השרטוט פוענח בהצלחה!")
                                     
-                                    # התאמה למבנה החדש לצורך חישוב מהיר של ה-AI
                                     ai_cuts = [{'length': float(item['length_cm']), 'qty': int(item['quantity'])} for item in result_data['detected_items']]
-                                    
                                     default_mat = st.session_state.iron_catalog[0]
                                     bars_plan, err = calculate_optimal_cutting(ai_cuts, default_mat['length'])
                                     
