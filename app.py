@@ -1,4 +1,5 @@
 import json
+import os
 import base64
 import io
 import streamlit as st
@@ -57,10 +58,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# ניהול מצב גלובלי (Session State)
+# פונקציות שמירה וטעינה מקובץ מקומי (למניעת מחיקה ברענון)
 # -----------------------------------------------------------------------------
-if 'iron_catalog' not in st.session_state:
-    st.session_state.iron_catalog = [
+CATALOG_FILE = "iron_catalog.json"
+
+def load_catalog():
+    if os.path.exists(CATALOG_FILE):
+        try:
+            with open(CATALOG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    # קטלוג ברירת מחדל אם הקובץ לא קיים או פגום
+    return [
         {"type": "פרופיל מרובע", "dimensions": "40*40", "thickness": "2 מ\"מ", "price": 110.0, "length": 600},
         {"type": "פרופיל מלבני", "dimensions": "50*25", "thickness": "2 מ\"מ", "price": 125.0, "length": 600},
         {"type": "שטוח", "dimensions": "3 ס\"מ", "thickness": "6 מ\"מ", "price": 55.0, "length": 300},
@@ -69,7 +79,16 @@ if 'iron_catalog' not in st.session_state:
         {"type": "מרובע מלא", "dimensions": "-", "thickness": "14 מ\"מ", "price": 50.0, "length": 600}
     ]
 
-# החזרת מבנה הקבוצות הרב-חומרי המשודרג
+def save_catalog():
+    with open(CATALOG_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.iron_catalog, f, ensure_ascii=False, indent=4)
+
+# -----------------------------------------------------------------------------
+# ניהול מצב גלובלי (Session State)
+# -----------------------------------------------------------------------------
+if 'iron_catalog' not in st.session_state:
+    st.session_state.iron_catalog = load_catalog()
+
 if 'project_groups' not in st.session_state:
     st.session_state.project_groups = [
         {
@@ -145,7 +164,7 @@ else:
     active_key = custom_api_key
 
 # =============================================================================
-# עמוד 1: מחירון ומלאי ברזל
+# עמוד 1: מחירון ומלאי ברזל (כולל אפשרות מחיקה דינמית)
 # =============================================================================
 if page == "💰 עמוד מחירון ומלאי ברזל":
     st.title("📋 קטלוג ומחירון חומרי גלם מפוצל")
@@ -169,15 +188,16 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         
     bar_length = 300 if selected_type == "שטוח" else 600
     
-    if st.button("💾 שמור פריט למחירון", type="primary"):
+    if st.button("💾 שמור פריט למחירון (נשמר לצמיתות)", type="primary"):
         st.session_state.iron_catalog.append({
             "type": selected_type, "dimensions": dims, "thickness": thickness, "price": price, "length": bar_length
         })
-        st.success("הברזל נוסף בהצלחה!")
+        save_catalog()  # שמירה מיידית לקובץ JSON
+        st.success("הברזל נוסף ונשמר בהצלחה!")
         st.rerun()
 
     st.markdown("---")
-    st.subheader("🗄️ תצוגת מחירון ממוינת לפי סוגי חומרים")
+    st.subheader("🗄️ תצוגת מחירון ממוינת עם אפשרות מחיקה")
     
     t_square, t_rect, t_flat, t_angle, t_round_full, t_square_full = st.tabs([
         "🔳 פרופיל מרובע", "█ פרופיל מלבני", "➖ שטוח", "📐 זווית", "⚪ עגול מלא", "⬛ מרובע מלא"
@@ -189,14 +209,23 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
     }
     
     if st.session_state.iron_catalog:
-        df_global = pd.DataFrame(st.session_state.iron_catalog)
         for iron_type, tab_obj in types_mapping.items():
             with tab_obj:
-                df_filtered = df_global[df_global['type'] == iron_type]
-                if not df_filtered.empty:
-                    df_view = df_filtered.copy()
-                    df_view.columns = ["סוג ברזל", "מידות", "עובי ברזל", "מחיר קנייה", "אורך מוט (ס\"מ)"]
-                    st.dataframe(df_view, use_container_width=True, hide_index=True)
+                # סינון פריטים השייכים לטאב הנוכחי תוך שמירת האינדקס המקורי שלהם לצורך מחיקה
+                filtered_items = [(idx, item) for idx, item in enumerate(st.session_state.iron_catalog) if item['type'] == iron_type]
+                
+                if filtered_items:
+                    for orig_idx, item in filtered_items:
+                        # יצירת שורה מעוצבת עם כפתור מחיקה תואם
+                        c_info, c_del = st.columns([6, 1])
+                        with c_info:
+                            st.info(f"📐 מידות: **{item['dimensions']}** |  🧱 עובי: **{item['thickness']}** |  💰 מחיר: **₪{item['price']:.2f}** |  📏 אורך: **{item['length']} ס\"מ**")
+                        with c_del:
+                            if st.button("🗑️ מחק", key=f"del_item_{orig_idx}", type="secondary"):
+                                st.session_state.iron_catalog.pop(orig_idx)
+                                save_catalog()  # עדכון קובץ ה-JSON לאחר מחיקה
+                                st.success("הפריט נמחק!")
+                                st.rerun()
                 else:
                     st.info(f"אין כרגע פריטים מסוג {iron_type} במחירון.")
 
