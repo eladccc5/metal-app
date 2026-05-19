@@ -7,7 +7,7 @@ from PIL import Image
 import google.generativeai as genai
 
 # -----------------------------------------------------------------------------
-# הגדרות עיצוב ומרכוז טבלאות (CSS להזרקה עם תיקון לסליידרים)
+# הגדרות עיצוב ומרכוז טבלאות (CSS מיושר ותיקון סליידרים)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="מערכת תמחור וחיתוך - Elad Cohen Iron Art", layout="wide")
 
@@ -32,14 +32,19 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
-    /* תיקון ממוקד לבעיית הסליידר הבורח ימינה בגלל ה-RTL */
+    
+    /* תיקון ממוקד מאוד למניעת קריסת והיפוך הסליידר */
     div[data-testid="stSidebar"] div[data-baseweb="slider"] {
         direction: ltr !important;
     }
-    /* תיקון כיוון הטקסט של המספרים הקטנים מתחת לסליידר */
+    div[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] {
+        direction: rtl !important;
+        text-align: right !important;
+    }
     div[data-testid="stSidebar"] div[data-baseweb="slider"] div {
         direction: ltr !important;
     }
+    
     .material-block {
         border: 1px solid #ddd;
         padding: 15px;
@@ -204,7 +209,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 if not df_filtered.empty:
                     df_view = df_filtered.copy()
                     df_view.columns = ["סוג ברזל", "מידות", "עובי ברזל", "מחיר קנייה", "אורך מוט (ס\"מ)"]
-                    st.dataframe(df_view, use_container_width=True, hide_index=False)
+                    st.dataframe(df_view, use_container_width=True, hide_index=True)
                 else:
                     st.info(f"אין כרגע פריטים מסוג {iron_type} במחירון.")
                 
@@ -219,7 +224,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             st.rerun()
 
 # =============================================================================
-# עמוד 2: מחשבון פרויקט עם תמחור הוצאות כולל ומכפיל רווח
+# עמוד 2: מחשבון פרויקט 
 # =============================================================================
 else:
     st.title("📊 חישוב פרויקט לפי סוגי פרופיל מרוכזים")
@@ -364,10 +369,11 @@ else:
                 
                 if st.button("🔍 הפעל ניתוח AI לשרטוט", type="primary", key="btn_ai_multi"):
                     if not active_key:
-                        st.error("⚠️ אבטחה: אנא הזן מפתח API או הגדר אותו במערכת ה-Secrets כדי להפעיל את ה-AI.")
+                        st.error("⚠️ אנא הגדר את מפתח ה-API ב-Advanced settings תחת ה-Secrets בשרת הדיפלוי.")
                     else:
                         with st.spinner("ה-AI מנתח את השרטוט ומחלץ את כל סוגי המידות..."):
                             try:
+                                # שימוש במודל הרשמי והעדכני ביותר
                                 model = genai.GenerativeModel('gemini-2.5-flash')
                                 
                                 prompt = """
@@ -384,6 +390,7 @@ else:
                                 if "detected_items" in result_data and len(result_data["detected_items"]) > 0:
                                     st.success("🎉 השרטוט פוענח בהצלחה!")
                                     
+                                    # תיקון הסוגר הפתוח שהיה כאן בשורה 207
                                     ai_cuts = [{'length': float(item['length_cm']), 'qty': int(item['quantity'])} for item in result_data['detected_items']]
                                     default_mat = st.session_state.iron_catalog[0]
                                     bars_plan, err = calculate_optimal_cutting(ai_cuts, default_mat['length'])
