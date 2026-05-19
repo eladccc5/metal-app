@@ -7,7 +7,7 @@ from PIL import Image
 import google.generativeai as genai
 
 # -----------------------------------------------------------------------------
-# הגדרות עיצוב ומרכוז טבלאות (CSS להזרקה)
+# הגדרות עיצוב ומרכוז טבלאות (CSS להזרקה עם תיקון לסליידרים)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="מערכת תמחור וחיתוך - Elad Cohen Iron Art", layout="wide")
 
@@ -31,6 +31,14 @@ st.markdown("""
     div.stMarkdown {
         direction: rtl;
         text-align: right;
+    }
+    /* תיקון ממוקד לבעיית הסליידר הבורח ימינה בגלל ה-RTL */
+    div[data-testid="stSidebar"] div[data-baseweb="slider"] {
+        direction: ltr !important;
+    }
+    /* תיקון כיוון הטקסט של המספרים הקטנים מתחת לסליידר */
+    div[data-testid="stSidebar"] div[data-baseweb="slider"] div {
+        direction: ltr !important;
     }
     .material-block {
         border: 1px solid #ddd;
@@ -308,9 +316,7 @@ else:
                         })
                 
                 if not has_errors:
-                    # חישוב סך כל ההוצאות לפרויקט (ברזל + עבודה + תנור)
                     total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
-                    # תמחור לפי מכפיל רווח
                     final_client_price = total_expenses * profit_multiplier
                     
                     st.success("🔥 חישוב הוצאות ומכפיל רווח הושלם בהצלחה!")
@@ -358,7 +364,7 @@ else:
                 
                 if st.button("🔍 הפעל ניתוח AI לשרטוט", type="primary", key="btn_ai_multi"):
                     if not active_key:
-                        st.error("⚠️ אנא הזן מפתח API או הגדר אותו במערכת ה-Secrets כדי להפעיל את ה-AI.")
+                        st.error("⚠️ אבטחה: אנא הזן מפתח API או הגדר אותו במערכת ה-Secrets כדי להפעיל את ה-AI.")
                     else:
                         with st.spinner("ה-AI מנתח את השרטוט ומחלץ את כל סוגי המידות..."):
                             try:
