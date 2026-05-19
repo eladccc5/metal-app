@@ -98,9 +98,9 @@ st.sidebar.title("🛠️ הגדרות ותמחור פרויקט")
 page = st.sidebar.radio("ניווט בין עמודים:", ["💰 עמוד מחירון ומלאי ברזל", "📊 חישוב פרויקט שלם ושרטוטים"])
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📈 אחוז רווח מבוקש (גולמי)")
-profit_margin = st.sidebar.slider("גרור לבחירת אחוז רווח לפרויקט:", min_value=0, max_value=250, value=50, step=5)
-st.sidebar.info(f"🎯 אחוז רווח נבחר: **{profit_margin}%**")
+st.sidebar.subheader("📈 מכפיל רווח מבוקש")
+profit_multiplier = st.sidebar.slider("גרור לבחירת מכפיל עלות (X):", min_value=1.0, max_value=4.0, value=1.5, step=0.1)
+st.sidebar.info(f"🎯 מכפיל רווח נבחר: **x{profit_multiplier:.1f}**")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("👷 עלויות עבודה ופועלים")
@@ -108,7 +108,6 @@ labor_count = st.sidebar.number_input("מספר עובדים בפרויקט:", m
 project_days = st.sidebar.number_input("כמות ימי עבודה מתוכננים:", min_value=0, value=1, step=1)
 daily_wage = st.sidebar.number_input("שכר יומי לעובד אחד (₪):", min_value=0.0, value=500.0, step=50.0)
 
-# חישוב אוטומטי של עלות העבודה להצגה מהירה בסיידבר
 total_labor_cost = labor_count * project_days * daily_wage
 st.sidebar.caption(f"💵 סך עלות עבודה מחושבת: ₪ {total_labor_cost:,.2f}")
 
@@ -212,7 +211,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             st.rerun()
 
 # =============================================================================
-# עמוד 2: מחשבון פרויקט עם תמחור הוצאות כולל ורווח גולמי
+# עמוד 2: מחשבון פרויקט עם תמחור הוצאות כולל ומכפיל רווח
 # =============================================================================
 else:
     st.title("📊 חישוב פרויקט לפי סוגי פרופיל מרוכזים")
@@ -311,12 +310,11 @@ else:
                 if not has_errors:
                     # חישוב סך כל ההוצאות לפרויקט (ברזל + עבודה + תנור)
                     total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
-                    # רווח גולמי - מכפילים את כל ההוצאות באחוז המבוקש
-                    final_client_price = total_expenses * (1 + profit_margin / 100)
+                    # תמחור לפי מכפיל רווח
+                    final_client_price = total_expenses * profit_multiplier
                     
-                    st.success("🔥 חישוב הוצאות ורווח גולמי הושלם בהצלחה!")
+                    st.success("🔥 חישוב הוצאות ומכפיל רווח הושלם בהצלחה!")
                     
-                    # הצגת פירוט פיננסי מלא ומסודר
                     c1, c2, c3, c4 = st.columns(4)
                     with c1:
                         st.metric(label="עלות ברזל כוללת", value=f"₪ {total_iron_cost:,.2f}")
@@ -325,7 +323,7 @@ else:
                     with c3:
                         st.metric(label="עלות צביעה בתנור", value=f"₪ {oven_painting_cost:,.2f}")
                     with c4:
-                        st.metric(label="📊 סך כל ההוצאות (נטו)", value=f"₪ {total_expenses:,.2f}", delta=f"לפני רווח של {profit_margin}%", delta_color="inverse")
+                        st.metric(label="📊 סך כל ההוצאות (נטו)", value=f"₪ {total_expenses:,.2f}", delta=f"לפני מכפיל של x{profit_multiplier:.1f}", delta_color="inverse")
                     
                     st.markdown("---")
                     st.subheader("💰 הצעת מחיר סופית ללקוח")
@@ -388,9 +386,8 @@ else:
                                         st.error(err)
                                     else:
                                         total_iron_cost = len(bars_plan) * default_mat['price']
-                                        # חישוב הוצאות מלא כולל עבודה ותנור גם לטאב ה-AI
                                         total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
-                                        client_price = total_expenses * (1 + profit_margin / 100)
+                                        client_price = total_expenses * profit_multiplier
                                         
                                         d1, d2, d3 = st.columns(3)
                                         with d1:
@@ -398,7 +395,7 @@ else:
                                         with d2:
                                             st.metric(label="סך הוצאות פרויקט (ברזל+עבודה+צבע)", value=f"₪ {total_expenses:,.2f}")
                                         with d3:
-                                            st.metric(label="מחיר סופי ללקוח (רווח גולמי)", value=f"₪ {client_price:,.2f}")
+                                            st.metric(label="מחיר סופי ללקוח (מכפיל רווח)", value=f"₪ {client_price:,.2f}")
                                             
                                         ai_table = []
                                         for b_idx, bar in enumerate(bars_plan):
