@@ -373,7 +373,7 @@ else:
                     else:
                         with st.spinner("ה-AI מנתח את השרטוט ומחלץ את כל סוגי המידות..."):
                             try:
-                                # שימוש במודל הרשמי והעדכני ביותר
+                                # שימוש במודל הרשמי והעדכני ביותר ג'מיני 2.5 פלאש
                                 model = genai.GenerativeModel('gemini-2.5-flash')
                                 
                                 prompt = """
@@ -390,7 +390,6 @@ else:
                                 if "detected_items" in result_data and len(result_data["detected_items"]) > 0:
                                     st.success("🎉 השרטוט פוענח בהצלחה!")
                                     
-                                    # תיקון הסוגר הפתוח שהיה כאן בשורה 207
                                     ai_cuts = [{'length': float(item['length_cm']), 'qty': int(item['quantity'])} for item in result_data['detected_items']]
                                     default_mat = st.session_state.iron_catalog[0]
                                     bars_plan, err = calculate_optimal_cutting(ai_cuts, default_mat['length'])
