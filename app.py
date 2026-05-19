@@ -32,7 +32,6 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
-    /* עיצוב תיבות קבוצות החומרים */
     .material-block {
         border: 1px solid #ddd;
         padding: 15px;
@@ -56,7 +55,6 @@ if 'iron_catalog' not in st.session_state:
         {"type": "מרובע מלא", "dimensions": "-", "thickness": "14 מ\"מ", "price": 50.0, "length": 600}
     ]
 
-# מבנה נתונים לפרויקט: קבוצות ברזל המכילות מידות פנימיות
 if 'project_groups' not in st.session_state:
     st.session_state.project_groups = [
         {
@@ -94,20 +92,44 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
     return bars, None
 
 # -----------------------------------------------------------------------------
-# סרגל צדדי (Sidebar) לניהול הגדרות ומפתחות
+# סרגל צדדי (Sidebar) לניהול הגדרות, מפתחות ועלויות פרויקט
 # -----------------------------------------------------------------------------
-st.sidebar.title("🛠️ הגדרות מערכת")
+st.sidebar.title("🛠️ הגדרות ותמחור פרויקט")
 page = st.sidebar.radio("ניווט בין עמודים:", ["💰 עמוד מחירון ומלאי ברזל", "📊 חישוב פרויקט שלם ושרטוטים"])
 
 st.sidebar.markdown("---")
-profit_margin = st.sidebar.slider("אחוז רווח מבוקש ללקוח (%):", min_value=0, max_value=200, value=50, step=5)
+st.sidebar.subheader("📈 אחוז רווח מבוקש (גולמי)")
+profit_margin = st.sidebar.slider("גרור לבחירת אחוז רווח לפרויקט:", min_value=0, max_value=250, value=50, step=5)
+st.sidebar.info(f"🎯 אחוז רווח נבחר: **{profit_margin}%**")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("👷 עלויות עבודה ופועלים")
+labor_count = st.sidebar.number_input("מספר עובדים בפרויקט:", min_value=0, value=1, step=1)
+project_days = st.sidebar.number_input("כמות ימי עבודה מתוכננים:", min_value=0, value=1, step=1)
+daily_wage = st.sidebar.number_input("שכר יומי לעובד אחד (₪):", min_value=0.0, value=500.0, step=50.0)
+
+# חישוב אוטומטי של עלות העבודה להצגה מהירה בסיידבר
+total_labor_cost = labor_count * project_days * daily_wage
+st.sidebar.caption(f"💵 סך עלות עבודה מחושבת: ₪ {total_labor_cost:,.2f}")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔥 עלויות חיצוניות")
+oven_painting_cost = st.sidebar.number_input("עלות ביצוע צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔑 חיבור ל-AI (Gemini)")
-custom_api_key = st.sidebar.text_input("הדבק מפתח API של גוגל כאן:", type="password", help="מאפשר להפעיל את מודל זיהוי השרטוטים ישירות מהנייד")
 
-if custom_api_key:
-    genai.configure(api_key=custom_api_key)
+api_key_from_secrets = st.secrets.get("GEMINI_API_KEY", None)
+
+if api_key_from_secrets:
+    genai.configure(api_key=api_key_from_secrets)
+    st.sidebar.success("✅ מפתח ה-API מחובר אוטומטית!")
+    active_key = api_key_from_secrets
+else:
+    custom_api_key = st.sidebar.text_input("הדבק מפתח API של גוגל כאן:", type="password")
+    if custom_api_key:
+        genai.configure(api_key=custom_api_key)
+    active_key = custom_api_key
 
 # =============================================================================
 # עמוד 1: מחירון ומלאי ברזל
@@ -190,7 +212,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             st.rerun()
 
 # =============================================================================
-# עמוד 2: מחשבון פרויקט משודרג ומרוכז
+# עמוד 2: מחשבון פרויקט עם תמחור הוצאות כולל ורווח גולמי
 # =============================================================================
 else:
     st.title("📊 חישוב פרויקט לפי סוגי פרופיל מרוכזים")
@@ -202,7 +224,7 @@ else:
         
         tab_multi_manual, tab_ai_drawing = st.tabs(["✍️ בניית פרויקט רב-חומרי משודרג", "📸 ניתוח שרטוט כולל (AI)"])
         
-        # --- טאב 1: מבנה קבוצות משודרג ---
+        # --- טאב 1: מבנה קבוצות ידני ---
         with tab_multi_manual:
             st.write("בחר סוג ברזל פעם אחת, והוסף תחתיו את כל גדלי החיתוכים השונים שאתה צריך ממנו לפרויקט.")
             
@@ -263,7 +285,7 @@ else:
                 st.markdown("---")
 
             if st.button("🚀 חשב ותמחר פרויקט שלם", type="primary", key="calc_group_project"):
-                total_project_cost = 0.0
+                total_iron_cost = 0.0
                 has_errors = False
                 all_plans_results = []
                 
@@ -277,7 +299,7 @@ else:
                     else:
                         bars_count = len(bars_plan)
                         material_cost = bars_count * mat_data['price']
-                        total_project_cost += material_cost
+                        total_iron_cost += material_cost
                         all_plans_results.append({
                             "mat_info": mat_data,
                             "plan": bars_plan,
@@ -287,14 +309,27 @@ else:
                         })
                 
                 if not has_errors:
-                    final_client_price = total_project_cost * (1 + profit_margin / 100)
-                    st.success("🔥 חישוב פרויקט מרוכז הושלם בהצלחה!")
+                    # חישוב סך כל ההוצאות לפרויקט (ברזל + עבודה + תנור)
+                    total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
+                    # רווח גולמי - מכפילים את כל ההוצאות באחוז המבוקש
+                    final_client_price = total_expenses * (1 + profit_margin / 100)
                     
-                    m1, m2 = st.columns(2)
-                    with m1:
-                        st.metric(label="עלות קניית חומרים כוללת (לפני מע\"מ)", value=f"₪ {total_project_cost:,.2f}")
-                    with m2:
-                        st.metric(label="מחיר סופי מומלץ ללקוח (כולל רווח)", value=f"₪ {final_client_price:,.2f}")
+                    st.success("🔥 חישוב הוצאות ורווח גולמי הושלם בהצלחה!")
+                    
+                    # הצגת פירוט פיננסי מלא ומסודר
+                    c1, c2, c3, c4 = st.columns(4)
+                    with c1:
+                        st.metric(label="עלות ברזל כוללת", value=f"₪ {total_iron_cost:,.2f}")
+                    with c2:
+                        st.metric(label="עלות פועלים ועבודה", value=f"₪ {total_labor_cost:,.2f}")
+                    with c3:
+                        st.metric(label="עלות צביעה בתנור", value=f"₪ {oven_painting_cost:,.2f}")
+                    with c4:
+                        st.metric(label="📊 סך כל ההוצאות (נטו)", value=f"₪ {total_expenses:,.2f}", delta=f"לפני רווח של {profit_margin}%", delta_color="inverse")
+                    
+                    st.markdown("---")
+                    st.subheader("💰 הצעת מחיר סופית ללקוח")
+                    st.metric(label="מחיר סופי מומלץ (לפני מע\"מ)", value=f"₪ {final_client_price:,.2f}", delta=f"רווח נקי שלך: ₪ {final_client_price - total_expenses:,.2f}")
                     
                     st.markdown("---")
                     st.subheader("📐 תוכניות חיתוך מפורטות לפרויקט הנוכחי:")
@@ -313,7 +348,7 @@ else:
                             })
                         st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
 
-        # --- טאב 2: ניתוח שרטוטים (שם דגם חדש ויציב עם הגנה מפני קריסות) ---
+        # --- טאב 2: ניתוח שרטוטים ---
         with tab_ai_drawing:
             st.subheader("📸 ניתוח שרטוט כולל מהשטח באמצעות AI")
             
@@ -324,12 +359,11 @@ else:
                 st.image(image, caption="השרטוט שהועלה לפענוח פרויקט", width=350)
                 
                 if st.button("🔍 הפעל ניתוח AI לשרטוט", type="primary", key="btn_ai_multi"):
-                    if not custom_api_key:
-                        st.error("⚠️ אנא הזן תחילה את מפתח ה-API שלך בסרגל הצד (Sidebar) כדי להפעיל את ה-AI.")
+                    if not active_key:
+                        st.error("⚠️ אנא הזן מפתח API או הגדר אותו במערכת ה-Secrets כדי להפעיל את ה-AI.")
                     else:
                         with st.spinner("ה-AI מנתח את השרטוט ומחלץ את כל סוגי המידות..."):
                             try:
-                                # שימוש בדגם הרשמי והיציב ביותר של גוגל לפענוח מדיה במערכת החדשה
                                 model = genai.GenerativeModel('gemini-2.5-flash')
                                 
                                 prompt = """
@@ -353,17 +387,18 @@ else:
                                     if err:
                                         st.error(err)
                                     else:
-                                        total_bars = len(bars_plan)
-                                        total_cost = total_bars * default_mat['price']
-                                        client_price = total_cost * (1 + profit_margin / 100)
+                                        total_iron_cost = len(bars_plan) * default_mat['price']
+                                        # חישוב הוצאות מלא כולל עבודה ותנור גם לטאב ה-AI
+                                        total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
+                                        client_price = total_expenses * (1 + profit_margin / 100)
                                         
                                         d1, d2, d3 = st.columns(3)
                                         with d1:
-                                            st.metric(label="מוטות נדרשים להזמנה", value=f"{total_bars} יח'")
+                                            st.metric(label="מוטות נדרשים להזמנה", value=f"{len(bars_plan)} יח'")
                                         with d2:
-                                            st.metric(label="עלות חומר (₪)", value=f"₪ {total_cost:,.2f}")
+                                            st.metric(label="סך הוצאות פרויקט (ברזל+עבודה+צבע)", value=f"₪ {total_expenses:,.2f}")
                                         with d3:
-                                            st.metric(label="מחיר ללקוח (₪)", value=f"₪ {client_price:,.2f}")
+                                            st.metric(label="מחיר סופי ללקוח (רווח גולמי)", value=f"₪ {client_price:,.2f}")
                                             
                                         ai_table = []
                                         for b_idx, bar in enumerate(bars_plan):
@@ -376,4 +411,4 @@ else:
                                 else:
                                     st.error("המודל לא זיהה מידות ברורות בשרטוט, נסה לצלם מקרוב או ברור יותר.")
                             except Exception as e:
-                                st.error(f"הסבר על השגיאה: המערכת של גוגל דורשת שם מודל ספציפי או שישנה בעיה זמנית במפתח. פרטי השגיאה: {str(e)}")
+                                st.error(f"שגיאה בתקשורת עם ה-AI. פרטי השגיאה: {str(e)}")
