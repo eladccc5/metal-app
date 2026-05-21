@@ -92,7 +92,9 @@ if 'dynamic_catalog' not in st.session_state:
 if 'project_groups' not in st.session_state:
     st.session_state.project_groups = [
         {
-            'sel_idx': 0,
+            'sel_type': list(st.session_state.dynamic_catalog.keys())[0],
+            'sel_dim': st.session_state.dynamic_catalog[list(st.session_state.dynamic_catalog.keys())[0]]["dimensions"][0],
+            'sel_thk': st.session_state.dynamic_catalog[list(st.session_state.dynamic_catalog.keys())[0]]["thicknesses"][0],
             'cuts': [{'length': 100.0, 'qty': 1}]
         }
     ]
@@ -261,121 +263,159 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         st.info("הקטלוג ריק לחלוטין. פתח את תיבת הניהול למעלה כדי להוסיף סוגי ברזל ראשונים.")
 
 # =============================================================================
-# עמוד 2: מחשבון פרויקט - מסונכרן לחלוטין עם המחירון החי
+# עמוד 2: מחשבון פרויקט - עם מערכת תפריטים מדורגת (סוג -> מידה -> עובי)
 # =============================================================================
 else:
     st.title("📊 חישוב פרויקט שלם ושרטוטים")
     
-    # שליפת כל הברזלים שהוזן להם מחיר תקין מהמחירון הדינמי בזמן אמת
-    available_materials = []
-    for m_type, info in st.session_state.dynamic_catalog.items():
-        prices = info.get("prices", {})
-        for dim in info["dimensions"]:
-            for thk in info["thicknesses"]:
-                price = prices.get(dim, {}).get(thk, 0.0)
-                if price > 0:  # רק מה שיש לו מחיר יופיע כאופציה לבחירה
-                    available_materials.append({
-                        "label": f"{m_type} | מידה: {dim} | עובי: {thk} (עלות: ₪{price:.2f})",
-                        "type": m_type, "dim": dim, "thk": thk, "price": price, "length": info.get("length", 600)
-                    })
-                    
-    if not available_materials:
-        st.warning("⚠️ לא נמצאו פריטים מתומחרים במחירון! כנס לעמוד המחירון והזן מחיר (הגדול מ-0) לפריטים שאתה צריך לפרויקט.")
-    else:
-        material_labels = [m["label"] for m in available_materials]
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        if st.button("➕ הוסף קבוצת ברזל חדשה לפרויקט"):
+            first_type = list(st.session_state.dynamic_catalog.keys())[0]
+            st.session_state.project_groups.append({
+                'sel_type': first_type,
+                'sel_dim': st.session_state.dynamic_catalog[first_type]["dimensions"][0],
+                'sel_thk': st.session_state.dynamic_catalog[first_type]["thicknesses"][0],
+                'cuts': [{'length': 100.0, 'qty': 1}]
+            })
+            st.rerun()
+    with col_g2:
+        if st.button("❌ מחק קבוצת ברזל אחרונה") and len(st.session_state.project_groups) > 1:
+            st.session_state.project_groups.pop()
+            st.rerun()
+            
+    for g_idx, group in enumerate(st.session_state.project_groups):
+        st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
+        st.subheader(f"🧱 קבוצה #{g_idx + 1}")
         
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            if st.button("➕ הוסף קבוצת ברזל חדשה לפרויקט"):
-                st.session_state.project_groups.append({
-                    'sel_idx': 0,
-                    'cuts': [{'length': 100.0, 'qty': 1}]
-                })
-                st.rerun()
-        with col_g2:
-            if st.button("❌ מחק קבוצת ברזל אחרונה") and len(st.session_state.project_groups) > 1:
-                st.session_state.project_groups.pop()
-                st.rerun()
-                
-        for g_idx, group in enumerate(st.session_state.project_groups):
-            st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
-            st.subheader(f"🧱 קבוצה #{g_idx + 1}")
+        # -------------------------------------------------------------------------
+        # תפריטים מדורגים נקיים ומסודרים
+        # -------------------------------------------------------------------------
+        c1, c2, c3 = st.columns(3)
+        
+        # תפריט 1: סוג הברזל
+        all_types = list(st.session_state.dynamic_catalog.keys())
+        if group.get('sel_type') not in all_types:
+            group['sel_type'] = all_types[0]
             
-            # תיבת הבחירה המעודכנת והמסונכרנת אוטומטית לחלוטין
-            selected_label_idx = st.selectbox(
-                f"בחר חומר מהמחירון הדינמי:",
-                range(len(material_labels)),
-                format_func=lambda x: material_labels[x],
-                key=f"group_mat_{g_idx}",
-                index=min(group.get('sel_idx', 0), len(material_labels)-1)
-            )
-            group['sel_idx'] = selected_label_idx
-            
-            st.write("**📏 מידות חיתוך מבוקשות לחומר זה:**")
-            sub_c1, sub_c2 = st.columns([1, 5])
-            with sub_c1:
-                if st.button(f"➕ הוסף מידה", key=f"add_cut_{g_idx}"):
-                    group['cuts'].append({'length': 50.0, 'qty': 1})
-                    st.rerun()
-            with sub_c2:
-                if st.button(f"❌ מחק מידה", key=f"del_cut_{g_idx}") and len(group['cuts']) > 1:
-                    group['cuts'].pop()
-                    st.rerun()
-                    
-            for c_idx, cut in enumerate(group['cuts']):
-                col_l, col_q = st.columns(2)
-                with col_l:
-                    cut['length'] = st.number_input(f"אורך (ס\"מ) - חיתוך {c_idx+1}:", min_value=1.0, value=float(cut['length']), key=f"g_{g_idx}_l_{c_idx}")
-                with col_q:
-                    cut['qty'] = st.number_input(f"כמות יחידות:", min_value=1, value=int(cut['qty']), key=f"g_{g_idx}_q_{c_idx}")
-            st.markdown("</div>", unsafe_allow_html=True)
+        selected_type = c1.selectbox(
+            "בחר סוג ברזל:", 
+            all_types, 
+            index=all_types.index(group['sel_type']), 
+            key=f"type_select_{g_idx}"
+        )
+        
+        # אם המשתמש שינה את הסוג, נעדכן את ברירת המחדל של המידה והעובי
+        if selected_type != group['sel_type']:
+            group['sel_type'] = selected_type
+            group['sel_dim'] = st.session_state.dynamic_catalog[selected_type]["dimensions"][0]
+            group['sel_thk'] = st.session_state.dynamic_catalog[selected_type]["thicknesses"][0]
+            st.rerun()
 
-        st.markdown("---")
-        if st.button("🚀 חשב ותמחר פרויקט שלם", type="primary"):
-            total_iron_cost = 0.0
-            has_errors = False
-            all_plans_results = []
+        # תפריט 2: מידה (נגזר מהסוג)
+        available_dims = st.session_state.dynamic_catalog[group['sel_type']]["dimensions"]
+        if group.get('sel_dim') not in available_dims:
+            group['sel_dim'] = available_dims[0]
             
-            for g_idx, group in enumerate(st.session_state.project_groups):
-                mat_data = available_materials[group['sel_idx']]
-                bars_plan, err = calculate_optimal_cutting(group['cuts'], mat_data['length'])
+        selected_dim = c2.selectbox(
+            "בחר מידה:", 
+            available_dims, 
+            index=available_dims.index(group['sel_dim']), 
+            key=f"dim_select_{g_idx}"
+        )
+        
+        if selected_dim != group['sel_dim']:
+            group['sel_dim'] = selected_dim
+            st.rerun()
+
+        # תפריט 3: עובי (נגזר מהסוג)
+        available_thks = st.session_state.dynamic_catalog[group['sel_type']]["thicknesses"]
+        if group.get('sel_thk') not in available_thks:
+            group['sel_thk'] = available_thks[0]
+            
+        selected_thk = c3.selectbox(
+            "בחר עובי:", 
+            available_thks, 
+            index=available_thks.index(group['sel_thk']), 
+            key=f"thk_select_{g_idx}"
+        )
+        group['sel_thk'] = selected_thk
+
+        # שליפת המחיר ואורך המוט מהקטלוג הדינמי בזמן אמת
+        catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
+        current_price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
+        
+        st.write(f"**חומר שנבחר:** {group['sel_type']} | מידה: {group['sel_dim']} | עובי: {group['sel_thk']} (עלות למוט: ₪{current_price:.2f}, אורך: {catalog_info.get('length', 600)} ס\"מ)")
+        if current_price == 0:
+            st.warning("⚠️ שים לב: המחיר של פריט זה מוגדר כ-0 במחירון. הוא לא יחושב בסיכום הסופי.")
+        
+        st.write("**📏 מידות חיתוך מבוקשות לחומר זה:**")
+        sub_c1, sub_c2 = st.columns([1, 5])
+        with sub_c1:
+            if st.button(f"➕ הוסף מידה", key=f"add_cut_{g_idx}"):
+                group['cuts'].append({'length': 50.0, 'qty': 1})
+                st.rerun()
+        with sub_c2:
+            if st.button(f"❌ מחק מידה", key=f"del_cut_{g_idx}") and len(group['cuts']) > 1:
+                group['cuts'].pop()
+                st.rerun()
                 
-                if err:
-                    st.error(f"שגיאה בקבוצה #{g_idx+1}: {err}")
-                    has_errors = True
-                else:
-                    bars_count = len(bars_plan)
-                    material_cost = bars_count * mat_data['price']
-                    total_iron_cost += material_cost
-                    all_plans_results.append({
-                        "mat_info": mat_data, "plan": bars_plan, "count": bars_count, "cost": material_cost, "group_num": g_idx + 1
+        for c_idx, cut in enumerate(group['cuts']):
+            col_l, col_q = st.columns(2)
+            with col_l:
+                cut['length'] = st.number_input(f"אורך (ס\"מ) - חיתוך {c_idx+1}:", min_value=1.0, value=float(cut['length']), key=f"g_{g_idx}_l_{c_idx}")
+            with col_q:
+                cut['qty'] = st.number_input(f"כמות יחידות:", min_value=1, value=int(cut['qty']), key=f"g_{g_idx}_q_{c_idx}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    if st.button("🚀 חשב ותמחר פרויקט שלם", type="primary"):
+        total_iron_cost = 0.0
+        has_errors = False
+        all_plans_results = []
+        
+        for g_idx, group in enumerate(st.session_state.project_groups):
+            catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
+            price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
+            
+            bars_plan, err = calculate_optimal_cutting(group['cuts'], catalog_info['length'])
+            
+            if err:
+                st.error(f"שגיאה בקבוצה #{g_idx+1}: {err}")
+                has_errors = True
+            else:
+                bars_count = len(bars_plan)
+                material_cost = bars_count * price
+                total_iron_cost += material_cost
+                all_plans_results.append({
+                    "type": group['sel_type'], "dim": group['sel_dim'], "thk": group['sel_thk'],
+                    "length": catalog_info['length'], "plan": bars_plan, "count": bars_count, "cost": material_cost, "group_num": g_idx + 1
+                })
+                
+        if not has_errors:
+            total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
+            final_client_price = total_expenses * profit_multiplier
+            
+            st.success("🔥 החישוב הושלם בהצלחה!")
+            c1, c2, c3, c4 = st.columns(4)
+            with c1: st.metric("עלות ברזל כוללת", f"₪ {total_iron_cost:,.2f}")
+            with c2: st.metric("עלות עבודה", f"₪ {total_labor_cost:,.2f}")
+            with c3: st.metric("צביעה בתנור", f"₪ {oven_painting_cost:,.2f}")
+            with c4: st.metric("סך הוצאות פרויקט", f"₪ {total_expenses:,.2f}")
+            
+            st.subheader("💰 מחיר סופי ללקוח (לפני מע\"מ)")
+            st.metric(label="הצעת מחיר מומלצת", value=f"₪ {final_client_price:,.2f}", delta=f"רווח נקי שלך: ₪ {final_client_price - total_expenses:,.2f}")
+            
+            st.markdown("---")
+            st.subheader("📐 תוכניות חיתוך מפורטות (מימין לשמאל):")
+            for res in all_plans_results:
+                st.markdown(f"#### 🔨 קבוצה #{res['group_num']} - {res['type']} | {res['dim']} | עובי {res['thk']} ({res['count']} מוטות)")
+                table_rows = []
+                for b_idx, bar in enumerate(res['plan']):
+                    table_rows.append({
+                        "מספר מוט": f"מוט #{b_idx + 1}",
+                        "חיתוכים לבצוע מהמוט": "  |  ".join([f"{p} ס\"מ" for p in bar]),
+                        "סה\"כ מנוצל": f"{sum(bar)} ס\"מ",
+                        "פחת שנשאר בברזל": f"{res['length'] - sum(bar)} ס\"מ"
                     })
-                    
-            if not has_errors:
-                total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
-                final_client_price = total_expenses * profit_multiplier
-                
-                st.success("🔥 החישוב הושלם בהצלחה!")
-                c1, c2, c3, c4 = st.columns(4)
-                with c1: st.metric("עלות ברזל כוללת", f"₪ {total_iron_cost:,.2f}")
-                with c2: st.metric("עלות עבודה", f"₪ {total_labor_cost:,.2f}")
-                with c3: st.metric("צביעה בתנור", f"₪ {oven_painting_cost:,.2f}")
-                with c4: st.metric("סך הוצאות פרויקט", f"₪ {total_expenses:,.2f}")
-                
-                st.subheader("💰 מחיר סופי ללקוח (לפני מע\"מ)")
-                st.metric(label="הצעת מחיר מומלצת", value=f"₪ {final_client_price:,.2f}", delta=f"רווח נקי שלך: ₪ {final_client_price - total_expenses:,.2f}")
-                
-                st.markdown("---")
-                st.subheader("📐 תוכניות חיתוך מפורטות (מימין לשמאל):")
-                for res in all_plans_results:
-                    m_info = res['mat_info']
-                    st.markdown(f"#### 🔨 קבוצה #{res['group_num']} - {m_info['type']} | {m_info['dim']} | עובי {m_info['thk']} ({res['count']} מוטות)")
-                    table_rows = []
-                    for b_idx, bar in enumerate(res['plan']):
-                        table_rows.append({
-                            "מספר מוט": f"מוט #{b_idx + 1}",
-                            "חיתוכים לבצוע מהמוט": "  |  ".join([f"{p} ס\"מ" for p in bar]),
-                            "סה\"כ מנוצל": f"{sum(bar)} ס\"מ",
-                            "פחת שנשאר בברזל": f"{m_info['length'] - sum(bar)} ס\"מ"
-                        })
-                    st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
