@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import json
+import os
 
 # -----------------------------------------------------------------------------
 # הגדרות עיצוב ומרכוז טבלאות (CSS מיושר ותיקון סליידרים גלובלי)
@@ -41,8 +43,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# פונקציית טעינת בסיס הנתונים ההתחלתי (על פי טבלאות האקסל המקוריות שלך)
+# ניהול שמירה קבועה בקובץ (פרסיסטנטיות מלאה לריענונים וסגירת דפדפן)
 # -----------------------------------------------------------------------------
+DB_FILE = "iron_catalog.json"
+
 def get_initial_catalog():
     return {
         "פרופיל מרובע": {
@@ -83,11 +87,24 @@ def get_initial_catalog():
         }
     }
 
+def load_catalog():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return get_initial_catalog()
+    return get_initial_catalog()
+
+def save_catalog(catalog):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(catalog, f, ensure_ascii=False, indent=4)
+
 # -----------------------------------------------------------------------------
-# אתחול Session State (ניהול זיכרון חי ודינמי לחלוטין)
+# אתחול Session State (טעינה ישירות מהקובץ הקבוע)
 # -----------------------------------------------------------------------------
 if 'dynamic_catalog' not in st.session_state:
-    st.session_state.dynamic_catalog = get_initial_catalog()
+    st.session_state.dynamic_catalog = load_catalog()
 
 if 'project_groups' not in st.session_state:
     first_type = list(st.session_state.dynamic_catalog.keys())[0]
@@ -150,11 +167,11 @@ st.sidebar.subheader("🔥 עלויות חיצוניות")
 oven_painting_cost = st.sidebar.number_input("עלות צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
 
 # =============================================================================
-# עמוד 1: מחירון דינמי לחלוטין (הוספה/הורדה של סוגים, מידות ועוביים)
+# עמוד 1: מחירון דינמי לחלוטין (הוספה/הורדה של סוגים, מידות ועוביים + שמירה לקובץ)
 # =============================================================================
 if page == "💰 עמוד מחירון ומלאי ברזל":
     st.title("📋 קטלוג ומחירון ברזל דינמי")
-    st.write("נהל את סוגי הברזל, המידות והעוביים בטבלאות מימין לשמאל. הזן מחיר בשקלים לכל מוט. פריט עם מחיר 0 לא יופיע במחשבון הפרויקטים.")
+    st.write("נהל את סוגי הברזל, המידות והעוביים. כל מחיר שתקליד יישמר אוטומטית לקובץ המערכת ויהיה זמין תמיד, גם לאחר ריענון הדף (F5).")
 
     # -------------------------------------------------------------------------
     # קטע ניהול: הוספה והסרה של סוגי ברזל (לשוניות), מידות ועוביים
@@ -168,7 +185,8 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             if st.button("צור לשונית סוג ברזל חדשה"):
                 if new_type and new_type not in st.session_state.dynamic_catalog:
                     st.session_state.dynamic_catalog[new_type] = {"dimensions": ["40x40"], "thicknesses": ["2.0 מ\"מ"], "length": default_len, "prices": {}}
-                    st.success(f"הלשונית '{new_type}' נוצרה בהצלחה!")
+                    save_catalog(st.session_state.dynamic_catalog)
+                    st.success(f"הלשונית '{new_type}' נוצרה ונשמרה בהצלחה!")
                     st.rerun()
                     
             st.markdown("---")
@@ -181,7 +199,8 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                         st.session_state.dynamic_catalog[target_type]["dimensions"].append(new_value)
                     elif add_mode == "עובי ברזל חדש (עמודה)" and new_value not in st.session_state.dynamic_catalog[target_type]["thicknesses"]:
                         st.session_state.dynamic_catalog[target_type]["thicknesses"].append(new_value)
-                    st.success(f"הערך {new_value} נוסף בהצלחה ל-{target_type}!")
+                    save_catalog(st.session_state.dynamic_catalog)
+                    st.success(f"הערך {new_value} נוסף ונשמר בהצלחה ב-{target_type}!")
                     st.rerun()
                     
         with c2:
@@ -190,7 +209,8 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             if st.button("מחק לשונית זו לצמיתות", type="secondary"):
                 if delete_type in st.session_state.dynamic_catalog:
                     del st.session_state.dynamic_catalog[delete_type]
-                    st.success(f"הלשונית '{delete_type}' נמחקה בהצלחה!")
+                    save_catalog(st.session_state.dynamic_catalog)
+                    st.success(f"הלשונית '{delete_type}' נמחקה מהמערכת!")
                     st.rerun()
                     
             st.markdown("---")
@@ -201,19 +221,21 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 val_to_del = st.selectbox("בחר מידה להסרה:", st.session_state.dynamic_catalog[target_del_type]["dimensions"])
                 if st.button("מחק שורת מידה זו"):
                     st.session_state.dynamic_catalog[target_del_type]["dimensions"].remove(val_to_del)
-                    st.success(f"המידה {val_to_del} הוסרה מהקטלוג!")
+                    save_catalog(st.session_state.dynamic_catalog)
+                    st.success(f"המידה {val_to_del} הוסרה ונשמרה!")
                     st.rerun()
             else:
                 val_to_del = st.selectbox("בחר עובי להסרה:", st.session_state.dynamic_catalog[target_del_type]["thicknesses"])
                 if st.button("מחק עמודת עובי זו"):
                     st.session_state.dynamic_catalog[target_del_type]["thicknesses"].remove(val_to_del)
-                    st.success(f"העובי {val_to_del} הוסר מהקטלוג!")
+                    save_catalog(st.session_state.dynamic_catalog)
+                    st.success(f"העובי {val_to_del} הוסר ונשמר!")
                     st.rerun()
 
     st.markdown("---")
 
     # -------------------------------------------------------------------------
-    # הצגת הלשוניות והטבלאות מימין לשמאל עם מנגנון שמירה יציב
+    # תצוגת טבלאות וסנכרון קשיח לקובץ JSON
     # -------------------------------------------------------------------------
     cat_keys = list(st.session_state.dynamic_catalog.keys())
     if cat_keys:
@@ -224,7 +246,6 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 info = st.session_state.dynamic_catalog[mat_type]
                 st.subheader(f"מחירי מוטות עבור: {mat_type} (אורך מוט בסיס: {info.get('length', 600)} ס\"מ)")
                 
-                # בניית המטריצה מתוך הנתונים השמורים ב-Session State
                 data_matrix = []
                 for dim in info["dimensions"]:
                     row = {"מידות": dim}
@@ -234,7 +255,6 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     
                 df = pd.DataFrame(data_matrix)
                 
-                # עורך הטבלה
                 edited_df = st.data_editor(
                     df,
                     key=f"editor_dyn_{mat_type}",
@@ -243,16 +263,23 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     disabled=["מידות"]
                 )
                 
-                # עדכון מיידי ויציב של הנתונים ברקע
+                # בדיקה אם בוצע שינוי כלשהו ורישום קשיח לקובץ
                 if "prices" not in info:
                     info["prices"] = {}
                 
+                has_changes = False
                 for _, row in edited_df.iterrows():
                     dim = row["מידות"]
                     if dim not in info["prices"]:
                         info["prices"][dim] = {}
                     for thk in info["thicknesses"]:
-                        info["prices"][dim][thk] = float(row[thk])
+                        val_float = float(row[thk])
+                        if info["prices"][dim].get(thk, -1) != val_float:
+                            info["prices"][dim][thk] = val_float
+                            has_changes = True
+                
+                if has_changes:
+                    save_catalog(st.session_state.dynamic_catalog)
                         
     else:
         st.info("הקטלוג ריק לחלוטין. פתח את תיבת הניהול למעלה כדי להוסיף סוגי ברזל ראשונים.")
@@ -285,7 +312,6 @@ else:
         
         c1, c2, c3 = st.columns(3)
         
-        # תפריט 1: סוג הברזל
         all_types = list(st.session_state.dynamic_catalog.keys())
         if group.get('sel_type') not in all_types:
             group['sel_type'] = all_types[0]
@@ -297,14 +323,12 @@ else:
             key=f"type_select_{g_idx}"
         )
         
-        # אם החלפנו סוג, מאפסים מידות ועוביים שיתאימו לסוג החדש
         if selected_type != group['sel_type']:
             group['sel_type'] = selected_type
             group['sel_dim'] = st.session_state.dynamic_catalog[selected_type]["dimensions"][0]
             group['sel_thk'] = st.session_state.dynamic_catalog[selected_type]["thicknesses"][0]
             st.rerun()
 
-        # תפריט 2: מידה
         available_dims = st.session_state.dynamic_catalog[group['sel_type']]["dimensions"]
         if group.get('sel_dim') not in available_dims:
             group['sel_dim'] = available_dims[0]
@@ -320,7 +344,6 @@ else:
             group['sel_dim'] = selected_dim
             st.rerun()
 
-        # תפריט 3: עובי
         available_thks = st.session_state.dynamic_catalog[group['sel_type']]["thicknesses"]
         if group.get('sel_thk') not in available_thks:
             group['sel_thk'] = available_thks[0]
@@ -333,7 +356,6 @@ else:
         )
         group['sel_thk'] = selected_thk
 
-        # שליפת מחיר עדכני מהמחירון הדינמי בשמירה חיה
         catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
         current_price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
         
