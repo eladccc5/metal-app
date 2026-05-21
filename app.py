@@ -90,11 +90,12 @@ if 'dynamic_catalog' not in st.session_state:
     st.session_state.dynamic_catalog = get_initial_catalog()
 
 if 'project_groups' not in st.session_state:
+    first_type = list(st.session_state.dynamic_catalog.keys())[0]
     st.session_state.project_groups = [
         {
-            'sel_type': list(st.session_state.dynamic_catalog.keys())[0],
-            'sel_dim': st.session_state.dynamic_catalog[list(st.session_state.dynamic_catalog.keys())[0]]["dimensions"][0],
-            'sel_thk': st.session_state.dynamic_catalog[list(st.session_state.dynamic_catalog.keys())[0]]["thicknesses"][0],
+            'sel_type': first_type,
+            'sel_dim': st.session_state.dynamic_catalog[first_type]["dimensions"][0],
+            'sel_thk': st.session_state.dynamic_catalog[first_type]["thicknesses"][0],
             'cuts': [{'length': 100.0, 'qty': 1}]
         }
     ]
@@ -212,7 +213,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
     st.markdown("---")
 
     # -------------------------------------------------------------------------
-    # הצגת הלשוניות והטבלאות מימין לשמאל
+    # הצגת הלשוניות והטבלאות מימין לשמאל עם מנגנון שמירה יציב
     # -------------------------------------------------------------------------
     cat_keys = list(st.session_state.dynamic_catalog.keys())
     if cat_keys:
@@ -223,7 +224,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 info = st.session_state.dynamic_catalog[mat_type]
                 st.subheader(f"מחירי מוטות עבור: {mat_type} (אורך מוט בסיס: {info.get('length', 600)} ס\"מ)")
                 
-                # בניית המטריצה לתצוגה
+                # בניית המטריצה מתוך הנתונים השמורים ב-Session State
                 data_matrix = []
                 for dim in info["dimensions"]:
                     row = {"מידות": dim}
@@ -233,7 +234,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     
                 df = pd.DataFrame(data_matrix)
                 
-                # עורך הטבלה בגירסה מיושרת לימין
+                # עורך הטבלה
                 edited_df = st.data_editor(
                     df,
                     key=f"editor_dyn_{mat_type}",
@@ -242,23 +243,17 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     disabled=["מידות"]
                 )
                 
-                # סנכרון מיידי של המחירים שהוקלדו לתוך ה-Session State
-                changes_made = False
+                # עדכון מיידי ויציב של הנתונים ברקע
                 if "prices" not in info:
                     info["prices"] = {}
-                    
+                
                 for _, row in edited_df.iterrows():
                     dim = row["מידות"]
                     if dim not in info["prices"]:
                         info["prices"][dim] = {}
                     for thk in info["thicknesses"]:
-                        new_val = float(row[thk])
-                        if info["prices"][dim].get(thk, 0.0) != new_val:
-                            info["prices"][dim][thk] = new_val
-                            changes_made = True
-                            
-                if changes_made:
-                    st.toast("💾 השינויים והמחירים החדשים עודכנו במערכת!", icon="💾")
+                        info["prices"][dim][thk] = float(row[thk])
+                        
     else:
         st.info("הקטלוג ריק לחלוטין. פתח את תיבת הניהול למעלה כדי להוסיף סוגי ברזל ראשונים.")
 
@@ -288,9 +283,6 @@ else:
         st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
         st.subheader(f"🧱 קבוצה #{g_idx + 1}")
         
-        # -------------------------------------------------------------------------
-        # תפריטים מדורגים נקיים ומסודרים
-        # -------------------------------------------------------------------------
         c1, c2, c3 = st.columns(3)
         
         # תפריט 1: סוג הברזל
@@ -305,14 +297,14 @@ else:
             key=f"type_select_{g_idx}"
         )
         
-        # אם המשתמש שינה את הסוג, נעדכן את ברירת המחדל של המידה והעובי
+        # אם החלפנו סוג, מאפסים מידות ועוביים שיתאימו לסוג החדש
         if selected_type != group['sel_type']:
             group['sel_type'] = selected_type
             group['sel_dim'] = st.session_state.dynamic_catalog[selected_type]["dimensions"][0]
             group['sel_thk'] = st.session_state.dynamic_catalog[selected_type]["thicknesses"][0]
             st.rerun()
 
-        # תפריט 2: מידה (נגזר מהסוג)
+        # תפריט 2: מידה
         available_dims = st.session_state.dynamic_catalog[group['sel_type']]["dimensions"]
         if group.get('sel_dim') not in available_dims:
             group['sel_dim'] = available_dims[0]
@@ -328,7 +320,7 @@ else:
             group['sel_dim'] = selected_dim
             st.rerun()
 
-        # תפריט 3: עובי (נגזר מהסוג)
+        # תפריט 3: עובי
         available_thks = st.session_state.dynamic_catalog[group['sel_type']]["thicknesses"]
         if group.get('sel_thk') not in available_thks:
             group['sel_thk'] = available_thks[0]
@@ -341,7 +333,7 @@ else:
         )
         group['sel_thk'] = selected_thk
 
-        # שליפת המחיר ואורך המוט מהקטלוג הדינמי בזמן אמת
+        # שליפת מחיר עדכני מהמחירון הדינמי בשמירה חיה
         catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
         current_price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
         
