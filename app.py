@@ -147,17 +147,25 @@ def save_to_github(filename, data_to_save, commit_message):
 
 def parse_dimension_key(dim_str):
     """מחלץ מספרים מתוך הטקסט של המידה כדי למיין מהקטן לגדול בצורה נכונה"""
+    # ניקוי והאחדה של סימונים נפוצים כמו כוכבית או X גדולה ל-x קטנה
     cleaned = dim_str.replace('*', 'x').replace('X', 'x')
     numbers = [float(s) for s in re.findall(r'\d+\.?\d*', cleaned)]
     return numbers if numbers else [0.0]
 
 def sort_dimensions_list(dims_list):
-    """ממיין את רשימת המידות מהקטן לגדול"""
-    return sorted(list(set(dims_list)), key=parse_dimension_key)
+    """מנקה כפילויות, מאחד פורמט וממיין את רשימת המידות מהקטן לגדול"""
+    cleaned_list = []
+    for d in dims_list:
+        # הופך "35*35" או "35X35" ל- "35x35" באופן קבוע
+        normalized = d.replace('*', 'x').replace('X', 'x')
+        cleaned_list.append(normalized)
+    return sorted(list(set(cleaned_list)), key=parse_dimension_key)
 
 def load_catalog():
     current = fetch_from_github("saved_prices.json", get_initial_catalog)
     default = get_initial_catalog()
+    
+    # הבטחה שכל קטגוריות ברירת המחדל קיימות
     for k, v in default.items():
         if k not in current:
             current[k] = v
@@ -180,15 +188,21 @@ if 'saved_projects' not in st.session_state:
     st.session_state.saved_projects = load_projects()
 
 if 'project_groups' not in st.session_state:
-    first_type = list(st.session_state.dynamic_catalog.keys())[0]
-    st.session_state.project_groups = [
-        {
-            'sel_type': first_type,
-            'sel_dim': st.session_state.dynamic_catalog[first_type]["dimensions"][0],
-            'sel_thk': st.session_state.dynamic_catalog[first_type]["thicknesses"][0],
-            'cuts': [{'length': 100.0, 'qty': 1}]
-        }
-    ]
+    all_keys = list(st.session_state.dynamic_catalog.keys())
+    if all_keys:
+        first_type = all_keys[0]
+        dims = st.session_state.dynamic_catalog[first_type]["dimensions"]
+        thks = st.session_state.dynamic_catalog[first_type]["thicknesses"]
+        st.session_state.project_groups = [
+            {
+                'sel_type': first_type,
+                'sel_dim': dims[0] if dims else "",
+                'sel_thk': thks[0] if thks else "",
+                'cuts': [{'length': 100.0, 'qty': 1}]
+            }
+        ]
+    else:
+        st.session_state.project_groups = []
 
 # -----------------------------------------------------------------------------
 # אלגוריתם חיתוך אופטימלי (Bin Packing)
@@ -288,14 +302,15 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
             st.markdown("**➕ הוספת מידה או עובי חדשים:**")
             new_dim_input = st.text_input("הוסף מידה חדשה (למשל: 45x45 או 15 מ\"מ):", key="new_dim_text")
             if st.button("➕ הוסף מידה לרשימה"):
-                if new_dim_input and new_dim_input not in st.session_state.dynamic_catalog[target_type]["dimensions"]:
-                    st.session_state.dynamic_catalog[target_type]["dimensions"].append(new_dim_input)
-                    # מיון אוטומטי מהקטן לגדול מייד לאחר ההוספה
-                    st.session_state.dynamic_catalog[target_type]["dimensions"] = sort_dimensions_list(st.session_state.dynamic_catalog[target_type]["dimensions"])
-                    st.success(f"המידה {new_dim_input} התווספה ומוינה בהצלחה! לחץ על שמירה למטה.")
-                    st.rerun()
-                elif new_dim_input:
-                    st.warning("מידה זו כבר קיימת בקטלוג.")
+                if new_dim_input:
+                    normalized_input = new_dim_input.replace('*', 'x').replace('X', 'x')
+                    if normalized_input not in st.session_state.dynamic_catalog[target_type]["dimensions"]:
+                        st.session_state.dynamic_catalog[target_type]["dimensions"].append(normalized_input)
+                        st.session_state.dynamic_catalog[target_type]["dimensions"] = sort_dimensions_list(st.session_state.dynamic_catalog[target_type]["dimensions"])
+                        st.success(f"המידה {normalized_input} התווספה ומוינה בהצלחה! לחץ על שמירה למטה.")
+                        st.rerun()
+                    else:
+                        st.warning("מידה זו כבר קיימת בקטלוג.")
                     
             new_thk_input = st.text_input("הוסף עובי חדש (למשל: 4.0 מ\"מ):", key="new_thk_text")
             if st.button("➕ הוסף עובי לרשימה"):
@@ -309,15 +324,17 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         with admin_c3:
             st.markdown("**❌ מחיקת מידה קיימת (אם הוספת בטעות):**")
             current_dims = st.session_state.dynamic_catalog[target_type]["dimensions"]
-            dim_to_delete = st.selectbox("בחר מידה להסרה מהטבלה:", current_dims, key="dim_to_delete_select")
-            if st.button("❌ מחק מידה נבחרת", type="secondary"):
-                if dim_to_delete in st.session_state.dynamic_catalog[target_type]["dimensions"]:
-                    st.session_state.dynamic_catalog[target_type]["dimensions"].remove(dim_to_delete)
-                    # מחיקה גם מתוך מבנה המחירים השמור כדי שלא יישאר זבל
-                    if "prices" in st.session_state.dynamic_catalog[target_type] and dim_to_delete in st.session_state.dynamic_catalog[target_type]["prices"]:
-                        del st.session_state.dynamic_catalog[target_type]["prices"][dim_to_delete]
-                    st.success(f"המידה {dim_to_delete} הוסרה מהטבלה הזמנית. לחץ על שמירה למטה כדי לעדכן בענן.")
-                    st.rerun()
+            if current_dims:
+                dim_to_delete = st.selectbox("בחר מידה להסרה מהטבלה:", current_dims, key="dim_to_delete_select")
+                if st.button("❌ מחק מידה נבחרת", type="secondary"):
+                    if dim_to_delete in st.session_state.dynamic_catalog[target_type]["dimensions"]:
+                        st.session_state.dynamic_catalog[target_type]["dimensions"].remove(dim_to_delete)
+                        if "prices" in st.session_state.dynamic_catalog[target_type] and dim_to_delete in st.session_state.dynamic_catalog[target_type]["prices"]:
+                            del st.session_state.dynamic_catalog[target_type]["prices"][dim_to_delete]
+                        st.success(f"המידה {dim_to_delete} הוסרה מהטבלה. לחץ על שמירה למטה כדי לעדכן בענן.")
+                        st.rerun()
+            else:
+                st.write("אין מידות זמינות למחיקה.")
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("---")
@@ -326,7 +343,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומבנה גדלים ממוין"):
                     st.success("🔥 כל המחירים, המידות והעוביים נשמרו, מוינו ועודכנו בהצלחה בענן!")
                 else:
-                    st.error("תקלה בתקשורת עם GitHub.")
+                    st.error("תקלה בתקשורת עם GitHub. ודא שהרשאות ה-repo מסומנות נכון.")
                         
 # =============================================================================
 # עמוד 2: מחשבון פרויקט + שמירה לארכיון
@@ -339,14 +356,18 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         if st.button("➕ הוסף קבוצת ברזל חדשה לפרויקט"):
-            first_type = list(st.session_state.dynamic_catalog.keys())[0]
-            st.session_state.project_groups.append({
-                'sel_type': first_type,
-                'sel_dim': st.session_state.dynamic_catalog[first_type]["dimensions"][0],
-                'sel_thk': st.session_state.dynamic_catalog[first_type]["thicknesses"][0],
-                'cuts': [{'length': 100.0, 'qty': 1}]
-            })
-            st.rerun()
+            all_keys = list(st.session_state.dynamic_catalog.keys())
+            if all_keys:
+                first_type = all_keys[0]
+                dims = st.session_state.dynamic_catalog[first_type]["dimensions"]
+                thks = st.session_state.dynamic_catalog[first_type]["thicknesses"]
+                st.session_state.project_groups.append({
+                    'sel_type': first_type,
+                    'sel_dim': dims[0] if dims else "",
+                    'sel_thk': thks[0] if thks else "",
+                    'cuts': [{'length': 100.0, 'qty': 1}]
+                })
+                st.rerun()
     with col_g2:
         if st.button("❌ מחק קבוצת ברזל אחרונה") and len(st.session_state.project_groups) > 1:
             st.session_state.project_groups.pop()
@@ -365,23 +386,29 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
         selected_type = c1.selectbox("בחר סוג ברזל:", all_types, index=all_types.index(group['sel_type']), key=f"type_select_{g_idx}")
         if selected_type != group['sel_type']:
             group['sel_type'] = selected_type
-            group['sel_dim'] = st.session_state.dynamic_catalog[selected_type]["dimensions"][0]
-            group['sel_thk'] = st.session_state.dynamic_catalog[selected_type]["thicknesses"][0]
+            dims = st.session_state.dynamic_catalog[selected_type]["dimensions"]
+            thks = st.session_state.dynamic_catalog[selected_type]["thicknesses"]
+            group['sel_dim'] = dims[0] if dims else ""
+            group['sel_thk'] = thks[0] if thks else ""
             st.rerun()
 
         available_dims = st.session_state.dynamic_catalog[group['sel_type']]["dimensions"]
-        if group['sel_dim'] not in available_dims:
+        if group['sel_dim'] not in available_dims and available_dims:
             group['sel_dim'] = available_dims[0]
-        selected_dim = c2.selectbox("בחר מידה:", available_dims, index=available_dims.index(group['sel_dim']), key=f"dim_select_{g_idx}")
-        if selected_dim != group['sel_dim']:
-            group['sel_dim'] = selected_dim
-            st.rerun()
+        
+        if available_dims:
+            selected_dim = c2.selectbox("בחר מידה:", available_dims, index=available_dims.index(group['sel_dim']), key=f"dim_select_{g_idx}")
+            if selected_dim != group['sel_dim']:
+                group['sel_dim'] = selected_dim
+                st.rerun()
 
         available_thks = st.session_state.dynamic_catalog[group['sel_type']]["thicknesses"]
-        if group['sel_thk'] not in available_thks:
+        if group['sel_thk'] not in available_thks and available_thks:
             group['sel_thk'] = available_thks[0]
-        selected_thk = c3.selectbox("בחר עובי:", available_thks, index=available_thks.index(group['sel_thk']), key=f"thk_select_{g_idx}")
-        group['sel_thk'] = selected_thk
+            
+        if available_thks:
+            selected_thk = c3.selectbox("בחר עובי:", available_thks, index=available_thks.index(group['sel_thk']), key=f"thk_select_{g_idx}")
+            group['sel_thk'] = selected_thk
 
         catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
         current_price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
@@ -430,7 +457,7 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
                 "length": catalog_info['length'], "plan": bars_plan, "count": bars_count, "cost": material_cost, "cuts": group['cuts']
             })
             
-    if not has_errors:
+    if not has_errors and st.session_state.project_groups:
         total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
         final_client_price = total_expenses * profit_multiplier
         
