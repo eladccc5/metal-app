@@ -33,6 +33,14 @@ st.markdown("""
         margin-bottom: 20px;
         direction: rtl;
     }
+    .project-card {
+        border: 1px solid #e0e4ec;
+        padding: 15px;
+        border-radius: 8px;
+        background-color: #ffffff;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -71,9 +79,9 @@ def get_initial_catalog():
         }
     }
 
-# פונקציה שטוענת את המחירים ישירות מ-GitHub בזמן עלייה (כולל הגנה מקריסה)
-def load_catalog():
-    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/saved_prices.json"
+# פונקציות עזר כלליות מול GitHub
+def fetch_from_github(filename, default_factory):
+    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
         res = requests.get(url, headers=headers)
@@ -81,18 +89,17 @@ def load_catalog():
             content_b64 = res.json().get("content")
             content_str = base64.b64decode(content_b64).decode("utf-8")
             loaded_data = json.loads(content_str)
-            if loaded_data and isinstance(loaded_data, dict) and len(loaded_data) > 0:
+            if loaded_data and (isinstance(loaded_data, dict) or isinstance(loaded_data, list)) and len(loaded_data) > 0:
                 return loaded_data
     except:
         pass
-    return get_initial_catalog()
+    return default_factory()
 
-# פונקציה שמעדכנת את ה-GitHub שלך בלחיצת כפתור מהאתר
-def save_catalog_to_github(catalog_data):
-    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/saved_prices.json"
+def save_to_github(filename, data_to_save, commit_message):
+    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     
-    content_str = json.dumps(catalog_data, ensure_ascii=False, indent=4)
+    content_str = json.dumps(data_to_save, ensure_ascii=False, indent=4)
     content_bytes = content_str.encode("utf-8")
     content_b64 = base64.b64encode(content_bytes).decode("utf-8")
     
@@ -102,7 +109,7 @@ def save_catalog_to_github(catalog_data):
         sha = res.json().get("sha")
         
     data = {
-        "message": "🔄 עדכון מחירון אוטומטי מהאפליקציה",
+        "message": commit_message,
         "content": content_b64,
         "branch": "main"
     }
@@ -112,11 +119,21 @@ def save_catalog_to_github(catalog_data):
     put_res = requests.put(url, headers=headers, json=data)
     return put_res.status_code in [200, 201]
 
+# פונקציות ספציפיות למחירון ופרויקטים
+def load_catalog():
+    return fetch_from_github("saved_prices.json", get_initial_catalog)
+
+def load_projects():
+    return fetch_from_github("saved_projects.json", list)
+
 # -----------------------------------------------------------------------------
 # אתחול הנתונים באפליקציה
 # -----------------------------------------------------------------------------
 if 'dynamic_catalog' not in st.session_state:
     st.session_state.dynamic_catalog = load_catalog()
+
+if 'saved_projects' not in st.session_state:
+    st.session_state.saved_projects = load_projects()
 
 if 'project_groups' not in st.session_state:
     first_type = list(st.session_state.dynamic_catalog.keys())[0]
@@ -157,30 +174,32 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
 # -----------------------------------------------------------------------------
 # סרגל צדדי (Sidebar)
 # -----------------------------------------------------------------------------
-st.sidebar.title("🛠️ הגדרות ותמחור פרויקט")
-page = st.sidebar.radio("ניווט בין עמודים:", ["💰 עמוד מחירון ומלאי ברזל", "📊 חישוב פרויקט שלם ושרטוטים"])
+st.sidebar.title("🛠️ Elad Cohen Iron Art")
+page = st.sidebar.radio("ניווט בין עמודים:", [
+    "💰 עמוד מחירון ומלאי ברזל", 
+    "📊 חישוב פרויקט שלם ושרטוטים",
+    "🗄️ ארכיון פרויקטים שמורים"
+])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📈 מכפיל רווח מבוקש")
 profit_multiplier = st.sidebar.slider("גרור לבחירת מכפיל עלות (X):", min_value=1.0, max_value=4.0, value=1.5, step=0.1)
 
-st.sidebar.markdown("---")
 st.sidebar.subheader("👷 עלויות עבודה ופועלים")
 labor_count = st.sidebar.number_input("מספר עובדים בפרויקט:", min_value=0, value=1, step=1)
 project_days = st.sidebar.number_input("כמות ימי עבודה מתוכננים:", min_value=0, value=1, step=1)
 daily_wage = st.sidebar.number_input("שכר יומי לעובד (₪):", min_value=0.0, value=500.0, step=50.0)
 total_labor_cost = labor_count * project_days * daily_wage
 
-st.sidebar.markdown("---")
 st.sidebar.subheader("🔥 עלויות חיצוניות")
 oven_painting_cost = st.sidebar.number_input("עלות צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
 
 # =============================================================================
-# עמוד 1: עריכת מחירון ישירות באפליקציה + שמירה קבועה ל-GitHub
+# עמוד 1: עריכת מחירון
 # =============================================================================
 if page == "💰 עמוד מחירון ומלאי ברזל":
     st.title("📋 קטלוג ומחירון ברזל דינמי")
-    st.write("עדכן את המחירים ישירות בטבלאות למטה. בסיום, לחץ על כפתור השמירה בתחתית העמוד כדי לשמור אותם לתמיד בשרת.")
+    st.write("עדכן את המחירים ישירות בטבלאות למטה ולחץ על כפתור השמירה בתחתית כדי לעדכן את הענן.")
 
     cat_keys = list(st.session_state.dynamic_catalog.keys())
     if cat_keys:
@@ -199,14 +218,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     data_matrix.append(row)
                     
                 df = pd.DataFrame(data_matrix)
-                
-                edited_df = st.data_editor(
-                    df,
-                    key=f"editor_sheet_{mat_type}",
-                    use_container_width=True,
-                    hide_index=True,
-                    disabled=["מידות"]
-                )
+                edited_df = st.data_editor(df, key=f"editor_sheet_{mat_type}", use_container_width=True, hide_index=True, disabled=["מידות"])
                 
                 if "prices" not in info:
                     info["prices"] = {}
@@ -218,22 +230,22 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                         info["prices"][dim][thk] = float(row[thk])
 
         st.markdown("---")
-        st.subheader("💾 שמירה קבועה לענן")
-        
         if st.button("📁 שמור את כל המחירים החדשים לתמיד", type="primary"):
             with st.spinner("שומר את הנתונים בשרת GitHub..."):
-                success = save_catalog_to_github(st.session_state.dynamic_catalog)
-                if success:
-                    st.success("🔥 כל המחירים נשמרו בהצלחה בתוך השרת! הם לא יימחקו יותר לעולם.")
+                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון אוטומטי"):
+                    st.success("🔥 כל המחירים נשמרו בהצלחה בתוך השרת!")
                 else:
-                    st.error("תקלה בתקשורת עם GitHub. ודא שהרשאות ה-repo מסומנות נכון.")
+                    st.error("תקלה בתקשורת עם GitHub.")
                         
 # =============================================================================
-# עמוד 2: מחשבון פרויקט
+# עמוד 2: מחשבון פרויקט + שמירה לארכיון
 # =============================================================================
-else:
+elif page == "📊 חישוב פרויקט שלם ושרטוטים":
     st.title("📊 חישוב פרויקט שלם ושרטוטים")
     
+    # הוספת שם פרויקט
+    project_name = st.text_input("✍️ הכנס שם לפרויקט זה (למשל: סורגים לחנה):", value="פרויקט ללא שם")
+
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         if st.button("➕ הוסף קבוצת ברזל חדשה לפרויקט"):
@@ -299,38 +311,118 @@ else:
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    if st.button("🚀 חשב ותמחר פרויקט שלם", type="primary"):
-        total_iron_cost = 0.0
-        has_errors = False
-        all_plans_results = []
+    
+    # חישובים ותוצאות
+    total_iron_cost = 0.0
+    has_errors = False
+    all_plans_results = []
+    
+    for g_idx, group in enumerate(st.session_state.project_groups):
+        catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
+        price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
         
-        for g_idx, group in enumerate(st.session_state.project_groups):
-            catalog_info = st.session_state.dynamic_catalog[group['sel_type']]
-            price = catalog_info.get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
+        bars_plan, err = calculate_optimal_cutting(group['cuts'], catalog_info['length'])
+        if err:
+            st.error(f"שגיאה בקבוצה #{g_idx+1}: {err}")
+            has_errors = True
+        else:
+            bars_count = len(bars_plan)
+            material_cost = bars_count * price
+            total_iron_cost += material_cost
+            all_plans_results.append({
+                "type": group['sel_type'], "dim": group['sel_dim'], "thk": group['sel_thk'],
+                "length": catalog_info['length'], "plan": bars_plan, "count": bars_count, "cost": material_cost, "cuts": group['cuts']
+            })
             
-            bars_plan, err = calculate_optimal_cutting(group['cuts'], catalog_info['length'])
-            if err:
-                st.error(f"שגיאה בקבוצה #{g_idx+1}: {err}")
-                has_errors = True
-            else:
-                bars_count = len(bars_plan)
-                material_cost = bars_count * price
-                total_iron_cost += material_cost
-                all_plans_results.append({
-                    "type": group['sel_type'], "dim": group['sel_dim'], "thk": group['sel_thk'],
-                    "length": catalog_info['length'], "plan": bars_plan, "count": bars_count, "cost": material_cost, "group_num": g_idx + 1
-                })
+    if not has_errors:
+        total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
+        final_client_price = total_expenses * profit_multiplier
+        
+        # חישוב רווח בשקלים ובאחוזים
+        net_profit = final_client_price - total_expenses
+        gross_margin_percentage = (net_profit / final_client_price * 100) if final_client_price > 0 else 0.0
+        
+        st.success("🔥 החישוב הושלם בהצלחה!")
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: st.metric("עלות ברזל כוללת", f"₪ {total_iron_cost:,.2f}")
+        with c2: st.metric("עלות עבודה", f"₪ {total_labor_cost:,.2f}")
+        with c3: st.metric("צביעה בתנור", f"₪ {oven_painting_cost:,.2f}")
+        with c4: st.metric("סך הוצאות פרויקט", f"₪ {total_expenses:,.2f}")
+        
+        st.subheader("💰 סיכום רווחים והצעה ללקוח")
+        res_c1, res_c2, res_c3 = st.columns(3)
+        with res_c1:
+            st.metric(label="הצעת מחיר מומלצת (לפני מע\"מ)", value=f"₪ {final_client_price:,.2f}")
+        with res_c2:
+            st.metric(label="רווח נקי שלך (₪)", value=f"₪ {net_profit:,.2f}")
+        with res_c3:
+            st.metric(label="📈 אחוז רווח גולמי", value=f"{gross_margin_percentage:.1f}%")
+
+        # כפתור שמירה לארכיון ב-GitHub
+        st.markdown("---")
+        if st.button("💾 שמור פרויקט זה לארכיון הקבוע", type="primary"):
+            new_project = {
+                "name": project_name,
+                "iron_cost": total_iron_cost,
+                "labor_cost": total_labor_cost,
+                "paint_cost": oven_painting_cost,
+                "total_expenses": total_expenses,
+                "client_price": final_client_price,
+                "profit_ils": net_profit,
+                "margin_percent": gross_margin_percentage,
+                "details": all_plans_results
+            }
+            st.session_state.saved_projects.append(new_project)
+            with st.spinner("שומר פרויקט בארכיון הענן..."):
+                if save_to_github("saved_projects.json", st.session_state.saved_projects, f"📂 הוספת פרויקט: {project_name}"):
+                    st.success(f"🎉 הפרויקט '{project_name}' נשמר בהצלחה בארכיון!")
+                else:
+                    st.error("תקלה בשמירת הפרויקט בענן.")
+
+# =============================================================================
+# עמוד 3: ארכיון פרויקטים (חדש לחלוטין!)
+# =============================================================================
+else:
+    st.title("🗄️ ארכיון פרויקטים שמורים")
+    st.write("כאן שמורים כל הפרויקטים ההיסטוריים שחישבת בעבר. ניתן לראות פירוט מלא של חומרים וחיתוכים או למחוק.")
+
+    if not st.session_state.saved_projects:
+        st.info("ארכיון הפרויקטים ריק כרגע. שמור פרויקט מעמוד החישובים כדי לראות אותו כאן.")
+    else:
+        for p_idx, project in enumerate(st.session_state.saved_projects):
+            st.markdown(f"<div class='project-card'>", unsafe_allow_html=True)
+            
+            # שורת כותרת ונתונים מרכזיים
+            head_c1, head_c2, head_c3, head_c4 = st.columns([2, 1, 1, 1])
+            with head_c1:
+                st.subheader(f"📂 {project.get('name', 'פרויקט ללא שם')}")
+            with head_c2:
+                st.metric("מחיר ללקוח", f"₪ {project.get('client_price', 0.0):,.2f}")
+            with head_c3:
+                st.metric("רווח נקי", f"₪ {project.get('profit_ils', 0.0):,.2f}")
+            with head_c4:
+                st.metric("📈 רווח גולמי", f"{project.get('margin_percent', 0.0):.1f}%")
                 
-        if not has_errors:
-            total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
-            final_client_price = total_expenses * profit_multiplier
+            # פירוט מורחב בתוך כפתור פתיחה
+            with st.expander("🔍 הצג פירוט חומרים וחיתוכים מלא לפרויקט זה:"):
+                st.write(f"**סך הוצאות פרויקט:** ₪ {project.get('total_expenses', 0.0):,.2f} (ברזל: ₪ {project.get('iron_cost', 0.0):,.2f}, עבודה: ₪ {project.get('labor_cost', 0.0):,.2f}, צבע: ₪ {project.get('paint_cost', 0.0):,.2f})")
+                st.write("**🧱 פירוט קבוצות החומרים והמוטות שחושבו בפרויקט זה:**")
+                
+                for det in project.get('details', []):
+                    st.markdown(f"**• {det['type']}** | מידה: {det['dim']} | עובי: {det['thk']} | כמות מוטות נדרשת: **{det['count']}** (עלות חומר: ₪ {det['cost']:.2f})")
+                    st.write(f"⚙️ תוכנית חיתוך מוטות באורך {det['length']} ס\"מ:")
+                    for b_num, bar in enumerate(det['plan']):
+                        st.write(f"   - מוט #{b_num+1}: חיתוך חתיכות באורכים של {bar} ס\"מ (נשאר שארית: {det['length'] - sum(bar)} ס\"מ)")
             
-            st.success("🔥 החישוב הושלם בהצלחה!")
-            c1, c2, c3, c4 = st.columns(4)
-            with c1: st.metric("עלות ברזל כוללת", f"₪ {total_iron_cost:,.2f}")
-            with c2: st.metric("עלות עבודה", f"₪ {total_labor_cost:,.2f}")
-            with c3: st.metric("צביעה בתנור", f"₪ {oven_painting_cost:,.2f}")
-            with c4: st.metric("סך הוצאות פרויקט", f"₪ {total_expenses:,.2f}")
-            
-            st.subheader("💰 מחיר סופי ללקוח (לפני מע\"מ)")
-            st.metric(label="הצעת מחיר מומלצת", value=f"₪ {final_client_price:,.2f}", delta=f"רווח נקי שלך: ₪ {final_client_price - total_expenses:,.2f}")
+            # כפתור מחיקה
+            if st.button(f"❌ מחק פרויקט", key=f"del_proj_{p_idx}"):
+                deleted_name = st.session_state.saved_projects[p_idx].get('name', 'פרויקט')
+                st.session_state.saved_projects.pop(p_idx)
+                with st.spinner("מעדכן ארכיון בענן..."):
+                    if save_to_github("saved_projects.json", st.session_state.saved_projects, f"🗑️ מחיקת פרויקט: {deleted_name}"):
+                        st.success(f"הפרויקט '{deleted_name}' נמחק.")
+                        st.rerun()
+                    else:
+                        st.error("תקלה בעדכון המחיקה בענן.")
+                        
+            st.markdown("</div>", unsafe_allow_html=True)
