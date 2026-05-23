@@ -41,6 +41,13 @@ st.markdown("""
         margin-bottom: 15px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
+    .bar-display {
+        background-color: #f8f9fa;
+        border-right: 5px solid #2e7d32;
+        padding: 8px 12px;
+        margin: 5px 0;
+        border-radius: 4px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -79,7 +86,6 @@ def get_initial_catalog():
         }
     }
 
-# פונקציות עזר כלליות מול GitHub
 def fetch_from_github(filename, default_factory):
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -119,7 +125,6 @@ def save_to_github(filename, data_to_save, commit_message):
     put_res = requests.put(url, headers=headers, json=data)
     return put_res.status_code in [200, 201]
 
-# פונקציות ספציפיות למחירון ופרויקטים
 def load_catalog():
     return fetch_from_github("saved_prices.json", get_initial_catalog)
 
@@ -243,7 +248,6 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
 elif page == "📊 חישוב פרויקט שלם ושרטוטים":
     st.title("📊 חישוב פרויקט שלם ושרטוטים")
     
-    # הוספת שם פרויקט
     project_name = st.text_input("✍️ הכנס שם לפרויקט זה (למשל: סורגים לחנה):", value="פרויקט ללא שם")
 
     col_g1, col_g2 = st.columns(2)
@@ -312,7 +316,6 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
 
     st.markdown("---")
     
-    # חישובים ותוצאות
     total_iron_cost = 0.0
     has_errors = False
     all_plans_results = []
@@ -338,7 +341,6 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
         total_expenses = total_iron_cost + total_labor_cost + oven_painting_cost
         final_client_price = total_expenses * profit_multiplier
         
-        # חישוב רווח בשקלים ובאחוזים
         net_profit = final_client_price - total_expenses
         gross_margin_percentage = (net_profit / final_client_price * 100) if final_client_price > 0 else 0.0
         
@@ -351,14 +353,33 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
         
         st.subheader("💰 סיכום רווחים והצעה ללקוח")
         res_c1, res_c2, res_c3 = st.columns(3)
-        with res_c1:
-            st.metric(label="הצעת מחיר מומלצת (לפני מע\"מ)", value=f"₪ {final_client_price:,.2f}")
-        with res_c2:
-            st.metric(label="רווח נקי שלך (₪)", value=f"₪ {net_profit:,.2f}")
-        with res_c3:
-            st.metric(label="📈 אחוז רווח גולמי", value=f"{gross_margin_percentage:.1f}%")
+        with res_c1: st.metric(label="הצעת מחיר מומלצת (לפני מע\"מ)", value=f"₪ {final_client_price:,.2f}")
+        with res_c2: st.metric(label="רווח נקי שלך (₪)", value=f"₪ {net_profit:,.2f}")
+        with res_c3: st.metric(label="📈 אחוז רווח גולמי", value=f"{gross_margin_percentage:.1f}%")
 
-        # כפתור שמירה לארכיון ב-GitHub
+        # ---------------------------------------------------------------------
+        # התיקון: הצגת תוכנית חיתוך אופטימלית מפורטת על המסך בזמן אמת!
+        # ---------------------------------------------------------------------
+        st.markdown("---")
+        st.subheader("🪚 תוכנית חיתוך אופטימלית לביצוע בבית המלאכה")
+        st.write("פעל לפי ההנחיות הבאות כדי לחתוך את המוטות במינימום פחת ובזבוז חומר:")
+        
+        for plan_info in all_plans_results:
+            st.markdown(f"#### 🧱 {plan_info['type']} (מידה: {plan_info['dim']} | עובי: {plan_info['thk']})")
+            st.write(f"סך הכל נדרשים **{plan_info['count']} מוטות** שלמים באורך {plan_info['length']} ס\"מ.")
+            
+            for b_num, bar in enumerate(plan_info['plan']):
+                used_length = sum(bar)
+                waste = plan_info['length'] - used_length
+                # הצגת החיתוכים בצורה קריאה
+                cuts_formatted = " + ".join([f"{x}ס\"מ" for x in bar])
+                st.markdown(
+                    f"<div class='bar-display'>📏 <b>מוט #{b_num+1}:</b> לחתוך את החלקים הבאים: <b>{cuts_formatted}</b> | "
+                    f"ניצול מוט: {used_length} ס\"מ (שארית לפחת: {waste} ס\"מ)</div>", 
+                    unsafe_allow_html=True
+                )
+        # ---------------------------------------------------------------------
+
         st.markdown("---")
         if st.button("💾 שמור פרויקט זה לארכיון הקבוע", type="primary"):
             new_project = {
@@ -380,7 +401,7 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
                     st.error("תקלה בשמירת הפרויקט בענן.")
 
 # =============================================================================
-# עמוד 3: ארכיון פרויקטים (חדש לחלוטין!)
+# עמוד 3: ארכיון פרויקטים
 # =============================================================================
 else:
     st.title("🗄️ ארכיון פרויקטים שמורים")
@@ -392,18 +413,12 @@ else:
         for p_idx, project in enumerate(st.session_state.saved_projects):
             st.markdown(f"<div class='project-card'>", unsafe_allow_html=True)
             
-            # שורת כותרת ונתונים מרכזיים
             head_c1, head_c2, head_c3, head_c4 = st.columns([2, 1, 1, 1])
-            with head_c1:
-                st.subheader(f"📂 {project.get('name', 'פרויקט ללא שם')}")
-            with head_c2:
-                st.metric("מחיר ללקוח", f"₪ {project.get('client_price', 0.0):,.2f}")
-            with head_c3:
-                st.metric("רווח נקי", f"₪ {project.get('profit_ils', 0.0):,.2f}")
-            with head_c4:
-                st.metric("📈 רווח גולמי", f"{project.get('margin_percent', 0.0):.1f}%")
+            with head_c1: st.subheader(f"📂 {project.get('name', 'פרויקט ללא שם')}")
+            with head_c2: st.metric("מחיר ללקוח", f"₪ {project.get('client_price', 0.0):,.2f}")
+            with head_c3: st.metric("רווח נקי", f"₪ {project.get('profit_ils', 0.0):,.2f}")
+            with head_c4: st.metric("📈 רווח גולמי", f"{project.get('margin_percent', 0.0):.1f}%")
                 
-            # פירוט מורחב בתוך כפתור פתיחה
             with st.expander("🔍 הצג פירוט חומרים וחיתוכים מלא לפרויקט זה:"):
                 st.write(f"**סך הוצאות פרויקט:** ₪ {project.get('total_expenses', 0.0):,.2f} (ברזל: ₪ {project.get('iron_cost', 0.0):,.2f}, עבודה: ₪ {project.get('labor_cost', 0.0):,.2f}, צבע: ₪ {project.get('paint_cost', 0.0):,.2f})")
                 st.write("**🧱 פירוט קבוצות החומרים והמוטות שחושבו בפרויקט זה:**")
@@ -412,10 +427,9 @@ else:
                     st.markdown(f"**• {det['type']}** | מידה: {det['dim']} | עובי: {det['thk']} | כמות מוטות נדרשת: **{det['count']}** (עלות חומר: ₪ {det['cost']:.2f})")
                     st.write(f"⚙️ תוכנית חיתוך מוטות באורך {det['length']} ס\"מ:")
                     for b_num, bar in enumerate(det['plan']):
-                        st.write(f"   - מוט #{b_num+1}: חיתוך חתיכות באורכים של {bar} ס\"מ (נשאר שארית: {det['length'] - sum(bar)} ס\"מ)")
+                        st.write(f"   - מוט #{b_num+1}: חיתוך חתיכות באורכים של {bar} ס\"מ (נשאר שארית לפחת: {det['length'] - sum(bar)} ס\"מ)")
             
-            # כפתור מחיקה
-            if st.button(f"❌ מחק פרויקט", key=f"del_proj_{p_idx}"):
+            if st.button("❌ מחק פרויקט", key=f"del_proj_{p_idx}"):
                 deleted_name = st.session_state.saved_projects[p_idx].get('name', 'פרויקט')
                 st.session_state.saved_projects.pop(p_idx)
                 with st.spinner("מעדכן ארכיון בענן..."):
