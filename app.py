@@ -48,6 +48,13 @@ st.markdown("""
         margin: 5px 0;
         border-radius: 4px;
     }
+    .admin-box {
+        background-color: #fff9db;
+        border: 1px solid #fab005;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 25px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -138,7 +145,6 @@ def save_to_github(filename, data_to_save, commit_message):
     return put_res.status_code in [200, 201]
 
 def load_catalog():
-    # טוען את המחירון הקיים, ואם חסרים סוגים חדשים הוא ממזג אותם פנימה
     current = fetch_from_github("saved_prices.json", get_initial_catalog)
     default = get_initial_catalog()
     for k, v in default.items():
@@ -218,11 +224,11 @@ st.sidebar.subheader("🔥 עלויות חיצוניות")
 oven_painting_cost = st.sidebar.number_input("עלות צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
 
 # =============================================================================
-# עמוד 1: עריכת מחירון
+# עמוד 1: עריכת מחירון + הוספת מידות/עוביים חדשים דינמית
 # =============================================================================
 if page == "💰 עמוד מחירון ומלאי ברזל":
     st.title("📋 קטלוג ומחירון ברזל דינמי")
-    st.write("עדכן את המחירים ישירות בטבלאות למטה ולחץ על כפתור השמירה בתחתית כדי לעדכן את הענן.")
+    st.write("עדכן את המחירים ישירות בטבלאות למטה, או הוסף מידות חדשות בסקשן הצהוב בתחתית.")
 
     cat_keys = list(st.session_state.dynamic_catalog.keys())
     if cat_keys:
@@ -252,11 +258,42 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     for thk in info["thicknesses"]:
                         info["prices"][dim][thk] = float(row[thk])
 
+        # ---------------------------------------------------------------------
+        # התיקון: אזור ניהול והוספת גדלים חדשים לקטלוג באופן דינמי
+        # ---------------------------------------------------------------------
+        st.markdown("<div class='admin-box'>", unsafe_allow_html=True)
+        st.subheader("🛠️ ניהול והרחבת הקטלוג (הוספת גדלים ועוביים חדשים)")
+        
+        admin_c1, admin_c2, admin_c3 = st.columns(3)
+        
+        with admin_c1:
+            target_type = st.selectbox("1. בחר סוג ברזל לעדכון:", cat_keys, key="admin_target_type")
+        with admin_c2:
+            new_dim_input = st.text_input("2. הוסף מידה חדשה (למשל: 45x45 או 15 מ\"מ):", key="new_dim_text")
+            if st.button("➕ הוסף מידה לרשימה"):
+                if new_dim_input and new_dim_input not in st.session_state.dynamic_catalog[target_type]["dimensions"]:
+                    st.session_state.dynamic_catalog[target_type]["dimensions"].append(new_dim_input)
+                    st.success(f"המידה {new_dim_input} התווספה זמנית לטבלה של {target_type}! אל תשכח ללחוץ על כפתור השמירה למטה.")
+                    st.rerun()
+                elif new_dim_input:
+                    st.warning("מידה זו כבר קיימת בקטלוג.")
+        with admin_c3:
+            new_thk_input = st.text_input("3. הוסף עובי חדש (למשל: 4.0 מ\"מ):", key="new_thk_text")
+            if st.button("➕ הוסף עובי לרשימה"):
+                if new_thk_input and new_thk_input not in st.session_state.dynamic_catalog[target_type]["thicknesses"]:
+                    st.session_state.dynamic_catalog[target_type]["thicknesses"].append(new_thk_input)
+                    st.success(f"העובי {new_thk_input} התווסף זמנית לטבלה של {target_type}! אל תשכח ללחוץ על כפתור השמירה למטה.")
+                    st.rerun()
+                elif new_thk_input:
+                    st.warning("עובי זה כבר קיים בקטלוג.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        # ---------------------------------------------------------------------
+
         st.markdown("---")
-        if st.button("📁 שמור את כל המחירים החדשים לתמיד", type="primary"):
-            with st.spinner("שומר את הנתונים בשרת GitHub..."):
-                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון אוטומטי (כולל מוטות מלאים)"):
-                    st.success("🔥 כל המחירים נשמרו בהצלחה בתוך השרת!")
+        if st.button("📁 שמור את כל המחירים והגדלים החדשים לתמיד", type="primary"):
+            with st.spinner("שומר את הנתונים המעודכנים בשרת GitHub..."):
+                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומבנה גדלים דינמי"):
+                    st.success("🔥 כל המחירים, המידות והעוביים החדשים נשמרו בהצלחה בענן!")
                 else:
                     st.error("תקלה בתקשורת עם GitHub.")
                         
@@ -291,7 +328,6 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
         c1, c2, c3 = st.columns(3)
         all_types = list(st.session_state.dynamic_catalog.keys())
         
-        # הגנה למקרה שהסוג שנשמר בסטייט לא קיים (למשל אחרי עדכון)
         if group['sel_type'] not in all_types:
             group['sel_type'] = all_types[0]
             
