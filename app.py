@@ -41,7 +41,7 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 GITHUB_USERNAME = "eladccc5"             
 GITHUB_REPO = "metal-app"                
-GITHUB_TOKEN = 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     
+GITHUB_TOKEN ="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"    
 
 def get_initial_catalog():
     return {
