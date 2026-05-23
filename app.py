@@ -48,51 +48,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# חיבור מאובטח ומובנה ל-GitHub (כולל הטוקן החדש שלך)
+# חיבור מאובטח ומובנה ל-GitHub (כולל הטוקן ה-Classic החדש שלך)
 # =============================================================================
 GITHUB_USERNAME = "eladccc5"
 GITHUB_REPO = "metal-app"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 
 def get_initial_catalog():
     """קטלוג ברירת מחדל למקרה שהקובץ בענן לא קיים או ריק"""
     return {
-        "פרופיל מרובע": {
-            "dimensions": ["20x20", "25x25", "30x30", "40x40", "50x50", "60x60", "80x80", "100x100", "120x120"],
-            "thicknesses": ["1.5 מ\"מ", "2.0 מ\"מ", "2.5 מ\"מ", "3.0 מ\"מ"],
-            "length": 600,
-            "prices": {}
-        },
-        "פרופיל מלבני": {
-            "dimensions": ["40x20", "50x20", "50x25", "60x40", "80x40", "100x40", "100x50", "150x50"],
-            "thicknesses": ["1.5 מ\"מ", "2.0 מ\"מ", "2.5 מ\"מ", "3.0 מ\"מ"],
-            "length": 600,
-            "prices": {}
-        },
-        "שטוח": {
-            "dimensions": ["20 מ\"מ", "25 מ\"מ", "30 מ\"מ", "35 מ\"מ", "40 מ\"מ", "50 מ\"מ", "60 מ\"מ", "80 מ\"מ", "100 מ\"מ"],
-            "thicknesses": ["3 מ\"מ", "5 מ\"מ", "8 מ\"מ", "10 מ\"מ", "12 מ\"מ"],
-            "length": 300,
-            "prices": {}
-        },
-        "זווית": {
-            "dimensions": ["20x20", "25x25", "30x30", "40x40", "50x50"],
-            "thicknesses": ["3 מ\"מ", "4 מ\"מ", "5 מ\"מ"],
-            "length": 600,
-            "prices": {}
-        },
-        "מוט עגול מלא": {
-            "dimensions": ["8 מ\"מ", "10 מ\"מ", "12 מ\"מ", "14 מ\"מ", "16 מ\"מ", "18 מ\"מ", "20 מ\"מ", "25 מ\"מ"],
-            "thicknesses": ["מלא"],
-            "length": 600,
-            "prices": {}
-        },
-        "מוט מרובע מלא": {
-            "dimensions": ["10x10", "12x12", "14x14", "16x16", "20x20", "25x25"],
-            "thicknesses": ["מלא"],
-            "length": 600,
-            "prices": {}
-        }
+        "פרופיל מרובע": {"dimensions": ["20x20", "25x25", "30x30", "40x40", "50x50", "60x60", "80x80", "100x100", "120x120"], "thicknesses": ["1.5 מ\"מ", "2.0 מ\"מ", "2.5 מ\"מ", "3.0 מ\"מ"], "length": 600, "prices": {}},
+        "פרופיל מלבני": {"dimensions": ["40x20", "50x20", "50x25", "60x40", "80x40", "100x40", "100x50", "150x50"], "thicknesses": ["1.5 מ\"מ", "2.0 מ\"מ", "2.5 מ\"מ", "3.0 מ\"מ"], "length": 600, "prices": {}},
+        "שטוח": {"dimensions": ["20 מ\"מ", "25 מ\"מ", "30 מ\"מ", "35 מ\"מ", "40 מ\"מ", "50 מ\"מ", "60 מ\"מ", "80 מ\"מ", "100 מ\"מ"], "thicknesses": ["3 מ\"מ", "5 מ\"מ", "8 מ\"מ", "10 מ\"מ", "12 מ\"מ"], "length": 300, "prices": {}},
+        "זווית": {"dimensions": ["20x20", "25x25", "30x30", "40x40", "50x50"], "thicknesses": ["3 מ\"מ", "4 מ\"מ", "5 מ\"מ"], "length": 600, "prices": {}},
+        "מוט עגול מלא": {"dimensions": ["8 מ\"מ", "10 מ\"מ", "12 מ\"מ", "14 מ\"מ", "16 מ\"מ", "18 מ\"מ", "20 מ\"מ", "25 מ\"מ"], "thicknesses": ["מלא"], "length": 600, "prices": {}},
+        "מוט מרובע מלא": {"dimensions": ["10x10", "12x12", "14x14", "16x16", "20x20", "25x25"], "thicknesses": ["מלא"], "length": 600, "prices": {}}
     }
 
 def fetch_from_github(filename, default_factory):
@@ -124,7 +94,7 @@ def sort_dimensions_list(dims_list):
     def parse_key(d_str):
         nums = [float(s) for s in re.findall(r'\d+\.?\d*', d_str.replace('*', 'x').replace('X', 'x'))]
         return nums if nums else [0.0]
-    cleaned = list(set([d.replace('*', 'x').replace('X', 'x') for d in dims_list]))
+    cleaned = list(set([d.replace('*', 'x').replace('X', 'x').strip() for d in dims_list]))
     return sorted(cleaned, key=parse_key)
 
 # טעינת נתונים ראשונית מהענן
@@ -200,13 +170,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 data_matrix.append(row_dict)
             
             df = pd.DataFrame(data_matrix)
-            edited_df = st.data_editor(
-                df,
-                key=f"editor_{mat_type}",
-                use_container_width=True,
-                hide_index=True,
-                disabled=["מידות"]
-            )
+            edited_df = st.data_editor(df, key=f"editor_{mat_type}", use_container_width=True, hide_index=True, disabled=["מידות"])
             
             if "prices" not in info:
                 info["prices"] = {}
@@ -218,12 +182,14 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     info["prices"][dim][thk] = float(row[thk])
 
     st.markdown("<div class='admin-box'>", unsafe_allow_html=True)
-    st.subheader("➕ הוספת מידות חדשות לקטלוג")
-    col_add1, col_add2 = st.columns([2, 1])
-    target_type = col_add1.selectbox("בחר לאיזה סוג ברזל להוסיף:", cat_keys)
-    new_dim = col_add2.text_input("הקלד מידה חדשה (למשל: 35x35 או 40x30):")
+    st.subheader("⚙️ ניהול ועריכת רשימת המידות")
     
-    if st.button("➕ הוסף מידה לרשימה"):
+    col_add1, col_add2 = st.columns([2, 1])
+    target_type = col_add1.selectbox("בחר סוג ברזל לניהול המידות:", cat_keys)
+    new_dim = col_add2.text_input("הקלד מידה חדשה להוספה (למשל: 45x45):")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    if col_btn1.button("➕ הוסף מידה זו לרשימה", use_container_width=True):
         if new_dim:
             clean_name = new_dim.replace('*', 'x').replace('X', 'x').strip()
             if clean_name not in st.session_state.dynamic_catalog[target_type]["dimensions"]:
@@ -235,15 +201,25 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                 st.warning("המידה הזו כבר קיימת בקטלוג.")
         else:
             st.error("אנא הכנס ערך תקין בשדה המידה.")
+            
+    # כפתור מחיקת מידות מהרשימה
+    dim_to_delete = col_btn2.selectbox("בחר מידה קיימת למחיקה מהקטלוג:", st.session_state.dynamic_catalog[target_type]["dimensions"])
+    if col_btn2.button("❌ מחק מידה נבחרת מהרשימה", use_container_width=True):
+        if dim_to_delete in st.session_state.dynamic_catalog[target_type]["dimensions"]:
+            st.session_state.dynamic_catalog[target_type]["dimensions"].remove(dim_to_delete)
+            if dim_to_delete in st.session_state.dynamic_catalog[target_type].get("prices", {}):
+                del st.session_state.dynamic_catalog[target_type]["prices"][dim_to_delete]
+            st.success(f"המידה {dim_to_delete} הוסרה מהרשימה הזמנית! לחץ על כפתור השמירה האדום למטה לעדכון סופי.")
+            st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     if st.button("🔴 שמור את כל השינויים, המידות והמיון לתמיד", type="primary", use_container_width=True):
         with st.spinner("שומר את השינויים ומסנכרן מול השרת..."):
             if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומיון מידות"):
-                st.success("🔥 כל המחירים עודכנו, המידות הכפולות אוחדו והכל נשמר בבטחה!")
+                st.success("🔥 כל המחירים עודכנו, המידות הכפולות אוחדו והכל נשמר בבטחה בענן!")
             else:
-                st.error("תקלה בתקשורת עם GitHub. ודא שהחיבור וההרשאות תקינים.")
+                st.error("תקלה בתקשורת עם GitHub. ודא שההרשאות והחיבור תקינים.")
 
 # =============================================================================
 # עמוד 2: מחשבון פרויקטים, אופטימיזציית חיתוך ושרטוטים
@@ -317,7 +293,6 @@ else:
             group['cuts'].append({'length': 50.0, 'qty': 1})
             st.rerun()
 
-        # חישוב אופטימיזציה ועלות לקבוצה הנוכחית
         max_bar_len = st.session_state.dynamic_catalog[group['sel_type']]['length']
         single_bar_price = st.session_state.dynamic_catalog[group['sel_type']]["prices"].get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
         
@@ -332,14 +307,12 @@ else:
             total_project_iron_cost += group_iron_cost
             
             st.markdown(f"<div style='margin-top:15px;'>", unsafe_allow_html=True)
-            st.success(f"📊 **תוצאת אופטימיזציה:** נדרשים **{num_bars_needed}** מוטות מלאים. עלות הברזל לקבוצה זו: **₪ {group_iron_cost:,.2f}** (מחיר מוט: ₪ {single_bar_price})")
+            st.success(f"📊 **תוצאת אופטימיזציה:** נדרשים **{num_bars_needed}** מוטות מלאים. עלות הברזל לקבוצה זו: **₪ {group_iron_cost:,.2f}**")
             
-            # שרטוט גרפי ויזואלי של המוטות והחיתוכים
             for b_id, bar_cuts in enumerate(bars_plan):
                 used_space = sum(bar_cuts)
                 leftover = max_bar_len - used_space
-                
-                st.markdown(f"**מוט #{b_id + 1} (נשאר פחת של {leftover:.1f} ס\"מ):**", unsafe_allow_html=True)
+                st.markdown(f"**מוט #{b_id + 1} (נשאר פחת של {leftover:.1f} ס\"מ):**")
                 
                 bar_html = f"<div style='display: block; width: 100%; background-color: #e0e0e0; border-radius: 6px; margin: 6px 0; font-size:12px; font-weight:bold; color:white; overflow:hidden; border:1px solid #ccc;'>"
                 for part in bar_cuts:
@@ -353,9 +326,6 @@ else:
             st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # =============================================================================
-    # סיכום כספי, רווחים והצעת מחיר סופית
-    # =============================================================================
     if all_groups_valid:
         st.markdown("---")
         st.header("💰 סיכום עלויות והצעת מחיר סופית ללקוח")
@@ -368,7 +338,7 @@ else:
         m_col1.metric("💰 סך עלות הברזל וחומרי הגלם", f"₪ {total_project_iron_cost:,.2f}")
         m_col2.metric("👷 עלות עבודה ומסגרות (הוצאה)", f"₪ {total_labor_cost:,.2f}")
         m_col3.metric("📉 סך כל הוצאות הפרויקט (נטו)", f"₪ {total_project_expenses:,.2f}")
-        m_col4.metric("💎 הצעת מחיר מומלצת ללקוח (כולל רווח)", f"₪ {recommended_client_price:,.2f}", delta=f"₪ {net_project_profit:,.2f} רווח נקי למסגרייה")
+        m_col4.metric("💎 הצעת מחיר מומלצת ללקוח (כולל רווח)", f"₪ {recommended_client_price:,.2f}", delta=f"₪ {net_project_profit:,.2f} רווח נקי")
 
         st.markdown("---")
         st.subheader("💾 שמירה או טעינת פרויקטים מהארכיון")
@@ -391,7 +361,7 @@ else:
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"📂 שמירת פרויקט: {p_name_to_save}"):
                         st.success(f"🎉 הפרויקט '{p_name_to_save}' נשמר בהצלחה בארכיון!")
                     else:
-                        st.error("תקלה בשמירה מול השרת.")
+                        st.error("תקלה בשמירה מול השרת. ודא שההרשאות תקינות.")
             else:
                 st.error("אנא הכנס שם לפרויקט לפני השמירה.")
                 
