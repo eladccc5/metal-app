@@ -37,7 +37,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה - מושך מה-Secrets המאובטח!
+# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה - מושך מה-Secrets המאובטח
 # -----------------------------------------------------------------------------
 GITHUB_USERNAME = "eladccc5"             
 GITHUB_REPO = "metal-app"                
@@ -71,7 +71,7 @@ def get_initial_catalog():
         }
     }
 
-# פונקציה שטוענת את המחירים ישירות מ-GitHub בזמן עלייה
+# פונקציה שטוענת את המחירים ישירות מ-GitHub בזמן עלייה (כולל הגנה מקריסה)
 def load_catalog():
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/saved_prices.json"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
@@ -80,7 +80,9 @@ def load_catalog():
         if res.status_code == 200:
             content_b64 = res.json().get("content")
             content_str = base64.b64decode(content_b64).decode("utf-8")
-            return json.loads(content_str)
+            loaded_data = json.loads(content_str)
+            if loaded_data and isinstance(loaded_data, dict) and len(loaded_data) > 0:
+                return loaded_data
     except:
         pass
     return get_initial_catalog()
