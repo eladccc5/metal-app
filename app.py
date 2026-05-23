@@ -48,11 +48,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# חיבור מאובטח ומובנה ל-GitHub (כולל הטוקן החדש והתקין שלך)
+# חיבור מאובטח ומובנה ל-GitHub (משיכת הטוקן מתוך ה-Secrets המאובטחים)
 # =============================================================================
 GITHUB_USERNAME = "eladccc5"
 GITHUB_REPO = "metal-app"
-GITHUB_TOKEN = "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"
+
+# משיכת הטוקן בצורה בטוחה ישירות מהכספת של Streamlit
+if "GITHUB_TOKEN" in st.secrets:
+    GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+else:
+    GITHUB_TOKEN = ""
 
 def get_initial_catalog():
     """קטלוג ברירת מחדל למקרה שהקובץ בענן לא קיים או ריק"""
@@ -66,6 +71,8 @@ def get_initial_catalog():
     }
 
 def fetch_from_github(filename, default_factory):
+    if not GITHUB_TOKEN:
+        return default_factory()
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
@@ -79,6 +86,8 @@ def fetch_from_github(filename, default_factory):
     return default_factory()
 
 def save_to_github(filename, data_to_save, commit_message):
+    if not GITHUB_TOKEN:
+        return False
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     content_b64 = base64.b64encode(json.dumps(data_to_save, ensure_ascii=False, indent=4).encode("utf-8")).decode("utf-8")
@@ -87,7 +96,10 @@ def save_to_github(filename, data_to_save, commit_message):
     payload = {"message": commit_message, "content": content_b64, "branch": "main"}
     if sha:
         payload["sha"] = sha
-    return requests.put(url, headers=headers, json=payload).status_code in [200, 201]
+    try:
+        return requests.put(url, headers=headers, json=payload).status_code in [200, 201]
+    except:
+        return False
 
 def sort_dimensions_list(dims_list):
     """מנקה כפילויות של סימנים וממיין מידות מהקטן לגדול באופן מדויק"""
@@ -137,7 +149,7 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
     return bars, None
 
 # =============================================================================
-# תפריט וניווט צדדי (כולל עמוד הארכיון החדש)
+# תפריט וניווט צדדי
 # =============================================================================
 st.sidebar.title("🛠️ Elad Cohen Iron Art")
 page = st.sidebar.radio("ניווט בין עמודים:", ["💰 עמוד מחירון ומלאי ברזל", "📊 חישוב פרויקט ושרטוטים", "📂 ארכיון פרויקטים שמורים"])
@@ -202,7 +214,6 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         else:
             st.error("אנא הכנס ערך תקין בשדה המידה.")
             
-    # כפתור מחיקת מידות מהרשימה לשאלתך
     dim_to_delete = col_btn2.selectbox("בחר מידה קיימת למחיקה מהקטלוג:", st.session_state.dynamic_catalog[target_type]["dimensions"])
     if col_btn2.button("❌ מחק מידה נבחרת מהרשימה", use_container_width=True):
         if dim_to_delete in st.session_state.dynamic_catalog[target_type]["dimensions"]:
@@ -215,11 +226,14 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
 
     st.markdown("---")
     if st.button("🔴 שמור את כל השינויים, המידות והמיון לתמיד", type="primary", use_container_width=True):
-        with st.spinner("שומר את השינויים ומסנכרן מול השרת..."):
-            if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומיון מידות"):
-                st.success("🔥 כל המחירים עודכנו, המידות הכפולות אוחדו והכל נשמר בבטחה בענן!")
-            else:
-                st.error("תקלה בתקשורת עם GitHub. ודא שההרשאות והחיבור תקינים.")
+        if not GITHUB_TOKEN:
+            st.error("לא נמצא מפתח גישה (Token) מוגדר ב-Secrets של האפליקציה. אנא הגדר אותו תחילה.")
+        else:
+            with st.spinner("שומר את השינויים ומסנכרן מול השרת..."):
+                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומיון מידות"):
+                    st.success("🔥 כל המחירים עודכנו, המידות הכפולות אוחדו והכל נשמר בבטחה בענן!")
+                else:
+                    st.error("תקלה בתקשורת עם GitHub. ודא שההרשאות ב-Token והחיבור ב-Secrets תקינים.")
 
 # =============================================================================
 # עמוד 2: מחשבון פרויקטים, אופטימיזציית חיתוך ושרטוטים
@@ -347,7 +361,9 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
         p_name_to_save = col_s1.text_input("הקלד שם לפרויקט הנוכחי כדי לשמור אותו:")
         
         if col_s1.button("💾 שמור פרויקט זה לארכיון הענן באפליקציה", use_container_width=True):
-            if p_name_to_save:
+            if not GITHUB_TOKEN:
+                st.error("לא נמצא מפתח גישה (Token) מוגדר ב-Secrets של האפליקציה. אנא הגדר אותו תחילה.")
+            elif p_name_to_save:
                 new_project_entry = {
                     'project_name': p_name_to_save,
                     'multiplier': profit_multiplier,
@@ -361,12 +377,12 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"📂 שמירת פרויקט: {p_name_to_save}"):
                         st.success(f"🎉 הפרויקט '{p_name_to_save}' נשמר בהצלחה בארכיון! תוכל לגשת אליו תמיד בלשונית הארכיון.")
                     else:
-                        st.error("תקלה בשמירה מול השרת. ודא שההרשאות תקינות.")
+                        st.error("תקלה בשמירה מול השרת. ודא שההרשאות ב-Token והחיבור ב-Secrets תקינים.")
             else:
                 st.error("אנא הכנס שם לפרויקט לפני השמירה.")
 
 # =============================================================================
-# עמוד 3 החדש: ארכיון פרויקטים שמורים (תצוגה, טעינה ומחיקה מלאה)
+# עמוד 3: ארכיון פרויקטים שמורים (תצוגה, טעינה ומחיקה מלאה)
 # =============================================================================
 else:
     st.title("📂 ארכיון הפרויקטים השמורים של Elad Cohen Iron Art")
@@ -396,8 +412,13 @@ else:
                     st.rerun()
                     
                 if col_btn2.button("❌ מחק פרויקט זה לצמיתות מהארכיון", key=f"del_p_page_{p_idx}", use_container_width=True):
-                    st.session_state.saved_projects.pop(p_idx)
-                    with st.spinner("מוחק ומעדכן את הארכיון בענן..."):
-                        if save_to_github("saved_projects.json", st.session_state.saved_projects, f"🗑️ מחיקת פרויקט מהארכיון"):
-                            st.success("הפרויקט נמחק בהצלחה מהענן!")
-                            st.rerun()
+                    if not GITHUB_TOKEN:
+                        st.error("לא ניתן למחוק ללא מפתח גישה (Token) תקין ב-Secrets.")
+                    else:
+                        st.session_state.saved_projects.pop(p_idx)
+                        with st.spinner("מוחק ומעדכן את הארכיון בענן..."):
+                            if save_to_github("saved_projects.json", st.session_state.saved_projects, f"🗑️ מחיקת פרויקט מהארכיון"):
+                                st.success("הפרויקט נמחק בהצלחה מהענן!")
+                                st.rerun()
+                            else:
+                                st.error("תקלה בעדכון המחיקה מול השרת.")
