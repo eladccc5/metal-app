@@ -83,6 +83,18 @@ def get_initial_catalog():
             "thicknesses": ["3 מ\"מ", "4 מ\"מ", "5 מ\"מ"],
             "length": 600,
             "prices": {}
+        },
+        "מוט עגול מלא": {
+            "dimensions": ["8 מ\"מ", "10 מ\"מ", "12 מ\"מ", "14 מ\"מ", "16 מ\"מ", "18 מ\"מ", "20 מ\"מ", "25 מ\"מ"],
+            "thicknesses": ["מלא"],
+            "length": 600,
+            "prices": {}
+        },
+        "מוט מרובע מלא": {
+            "dimensions": ["10x10", "12x12", "14x14", "16x16", "20x20", "25x25"],
+            "thicknesses": ["מלא"],
+            "length": 600,
+            "prices": {}
         }
     }
 
@@ -126,7 +138,13 @@ def save_to_github(filename, data_to_save, commit_message):
     return put_res.status_code in [200, 201]
 
 def load_catalog():
-    return fetch_from_github("saved_prices.json", get_initial_catalog)
+    # טוען את המחירון הקיים, ואם חסרים סוגים חדשים הוא ממזג אותם פנימה
+    current = fetch_from_github("saved_prices.json", get_initial_catalog)
+    default = get_initial_catalog()
+    for k, v in default.items():
+        if k not in current:
+            current[k] = v
+    return current
 
 def load_projects():
     return fetch_from_github("saved_projects.json", list)
@@ -237,7 +255,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         st.markdown("---")
         if st.button("📁 שמור את כל המחירים החדשים לתמיד", type="primary"):
             with st.spinner("שומר את הנתונים בשרת GitHub..."):
-                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון אוטומטי"):
+                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון אוטומטי (כולל מוטות מלאים)"):
                     st.success("🔥 כל המחירים נשמרו בהצלחה בתוך השרת!")
                 else:
                     st.error("תקלה בתקשורת עם GitHub.")
@@ -273,6 +291,10 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
         c1, c2, c3 = st.columns(3)
         all_types = list(st.session_state.dynamic_catalog.keys())
         
+        # הגנה למקרה שהסוג שנשמר בסטייט לא קיים (למשל אחרי עדכון)
+        if group['sel_type'] not in all_types:
+            group['sel_type'] = all_types[0]
+            
         selected_type = c1.selectbox("בחר סוג ברזל:", all_types, index=all_types.index(group['sel_type']), key=f"type_select_{g_idx}")
         if selected_type != group['sel_type']:
             group['sel_type'] = selected_type
@@ -281,12 +303,16 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
             st.rerun()
 
         available_dims = st.session_state.dynamic_catalog[group['sel_type']]["dimensions"]
+        if group['sel_dim'] not in available_dims:
+            group['sel_dim'] = available_dims[0]
         selected_dim = c2.selectbox("בחר מידה:", available_dims, index=available_dims.index(group['sel_dim']), key=f"dim_select_{g_idx}")
         if selected_dim != group['sel_dim']:
             group['sel_dim'] = selected_dim
             st.rerun()
 
         available_thks = st.session_state.dynamic_catalog[group['sel_type']]["thicknesses"]
+        if group['sel_thk'] not in available_thks:
+            group['sel_thk'] = available_thks[0]
         selected_thk = c3.selectbox("בחר עובי:", available_thks, index=available_thks.index(group['sel_thk']), key=f"thk_select_{g_idx}")
         group['sel_thk'] = selected_thk
 
@@ -357,9 +383,6 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
         with res_c2: st.metric(label="רווח נקי שלך (₪)", value=f"₪ {net_profit:,.2f}")
         with res_c3: st.metric(label="📈 אחוז רווח גולמי", value=f"{gross_margin_percentage:.1f}%")
 
-        # ---------------------------------------------------------------------
-        # התיקון: הצגת תוכנית חיתוך אופטימלית מפורטת על המסך בזמן אמת!
-        # ---------------------------------------------------------------------
         st.markdown("---")
         st.subheader("🪚 תוכנית חיתוך אופטימלית לביצוע בבית המלאכה")
         st.write("פעל לפי ההנחיות הבאות כדי לחתוך את המוטות במינימום פחת ובזבוז חומר:")
@@ -371,14 +394,12 @@ elif page == "📊 חישוב פרויקט שלם ושרטוטים":
             for b_num, bar in enumerate(plan_info['plan']):
                 used_length = sum(bar)
                 waste = plan_info['length'] - used_length
-                # הצגת החיתוכים בצורה קריאה
                 cuts_formatted = " + ".join([f"{x}ס\"מ" for x in bar])
                 st.markdown(
                     f"<div class='bar-display'>📏 <b>מוט #{b_num+1}:</b> לחתוך את החלקים הבאים: <b>{cuts_formatted}</b> | "
                     f"ניצול מוט: {used_length} ס\"מ (שארית לפחת: {waste} ס\"מ)</div>", 
                     unsafe_allow_html=True
                 )
-        # ---------------------------------------------------------------------
 
         st.markdown("---")
         if st.button("💾 שמור פרויקט זה לארכיון הקבוע", type="primary"):
