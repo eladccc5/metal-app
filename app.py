@@ -48,11 +48,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# חיבור מאובטח ומובנה ל-GitHub (כולל הטוקן ה-Classic החדש שלך)
+# חיבור מאובטח ומובנה ל-GitHub (כולל הטוקן החדש והתקין שלך)
 # =============================================================================
 GITHUB_USERNAME = "eladccc5"
 GITHUB_REPO = "metal-app"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 
 def get_initial_catalog():
     """קטלוג ברירת מחדל למקרה שהקובץ בענן לא קיים או ריק"""
@@ -137,10 +137,10 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
     return bars, None
 
 # =============================================================================
-# תפריט וניווט צדדי
+# תפריט וניווט צדדי (כולל עמוד הארכיון החדש)
 # =============================================================================
 st.sidebar.title("🛠️ Elad Cohen Iron Art")
-page = st.sidebar.radio("ניווט בין עמודים:", ["💰 עמוד מחירון ומלאי ברזל", "📊 חישוב פרויקט ושרטוטים"])
+page = st.sidebar.radio("ניווט בין עמודים:", ["💰 עמוד מחירון ומלאי ברזל", "📊 חישוב פרויקט ושרטוטים", "📂 ארכיון פרויקטים שמורים"])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ הגדרות רווח גלובליות")
@@ -202,7 +202,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
         else:
             st.error("אנא הכנס ערך תקין בשדה המידה.")
             
-    # כפתור מחיקת מידות מהרשימה
+    # כפתור מחיקת מידות מהרשימה לשאלתך
     dim_to_delete = col_btn2.selectbox("בחר מידה קיימת למחיקה מהקטלוג:", st.session_state.dynamic_catalog[target_type]["dimensions"])
     if col_btn2.button("❌ מחק מידה נבחרת מהרשימה", use_container_width=True):
         if dim_to_delete in st.session_state.dynamic_catalog[target_type]["dimensions"]:
@@ -224,7 +224,7 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
 # =============================================================================
 # עמוד 2: מחשבון פרויקטים, אופטימיזציית חיתוך ושרטוטים
 # =============================================================================
-else:
+elif page == "📊 חישוב פרויקט ושרטוטים":
     st.title("📊 מחשבון פרויקטים, אופטימיזציית חיתוך ועלויות")
     
     col_actions = st.columns(2)
@@ -341,12 +341,12 @@ else:
         m_col4.metric("💎 הצעת מחיר מומלצת ללקוח (כולל רווח)", f"₪ {recommended_client_price:,.2f}", delta=f"₪ {net_project_profit:,.2f} רווח נקי")
 
         st.markdown("---")
-        st.subheader("💾 שמירה או טעינת פרויקטים מהארכיון")
+        st.subheader("💾 שמירת פרויקט חדש לארכיון")
         
-        col_s1, col_s2 = st.columns(2)
+        col_s1, _ = st.columns(2)
         p_name_to_save = col_s1.text_input("הקלד שם לפרויקט הנוכחי כדי לשמור אותו:")
         
-        if col_s1.button("💾 שמור פרויקט זה לארכיון הענן באפליקציה"):
+        if col_s1.button("💾 שמור פרויקט זה לארכיון הענן באפליקציה", use_container_width=True):
             if p_name_to_save:
                 new_project_entry = {
                     'project_name': p_name_to_save,
@@ -359,18 +359,45 @@ else:
                 
                 with st.spinner("שומר פרויקט בארכיון..."):
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"📂 שמירת פרויקט: {p_name_to_save}"):
-                        st.success(f"🎉 הפרויקט '{p_name_to_save}' נשמר בהצלחה בארכיון!")
+                        st.success(f"🎉 הפרויקט '{p_name_to_save}' נשמר בהצלחה בארכיון! תוכל לגשת אליו תמיד בלשונית הארכיון.")
                     else:
                         st.error("תקלה בשמירה מול השרת. ודא שההרשאות תקינות.")
             else:
                 st.error("אנא הכנס שם לפרויקט לפני השמירה.")
+
+# =============================================================================
+# עמוד 3 החדש: ארכיון פרויקטים שמורים (תצוגה, טעינה ומחיקה מלאה)
+# =============================================================================
+else:
+    st.title("📂 ארכיון הפרויקטים השמורים של Elad Cohen Iron Art")
+    st.write("כאן שמורים כל הפרויקטים שסנכרנת מול הענן. תוכל לצפות בפרטי החומרים והחיתוכים, לטעון אותם חזרה למחשבון, או למחוק אותם.")
+    
+    if not st.session_state.saved_projects:
+        st.info("הארכיון ריק כרגע או שלא נשמרו פרויקטים בענן.")
+    else:
+        for p_idx, project in enumerate(st.session_state.saved_projects):
+            with st.expander(f"📁 פרויקט: {project['project_name']}", expanded=False):
+                col_p1, col_p2 = st.columns(2)
+                col_p1.markdown(f"**מכפיל רווח שהוגדר:** {project.get('multiplier', 1.5)}")
+                col_p2.markdown(f"**עלות עבודה ומסגרות בפרויקט:** ₪ {project.get('labor_cost', 0.0):,.2f}")
                 
-        if st.session_state.saved_projects:
-            archived_names = [p['project_name'] for p in st.session_state.saved_projects]
-            selected_archive = col_s2.selectbox("בחר פרויקט קיים מהארכיון כדי לטעון אותו:", archived_names)
-            
-            if col_s2.button("📂 טען פרויקט נבחר למסך"):
-                loaded_p = next(p for p in st.session_state.saved_projects if p['project_name'] == selected_archive)
-                st.session_state.project_groups = loaded_p['groups_data']
-                st.success(f"הפרויקט '{selected_archive}' נטען בהצלחה! כל המידות והחיתוכים עודכנו.")
-                st.rerun()
+                st.markdown("##### 🧱 חומרים וחיתוכים שנשמרו בפרויקט זה:")
+                for group in project.get('groups_data', []):
+                    st.markdown(f"• **{group['sel_type']}** — מידה: `{group['sel_dim']}` | עובי דופן: `{group['sel_thk']}`")
+                    for cut in group.get('cuts', []):
+                        st.markdown(f"  └── 📏 כמות: **{cut['qty']}** חתיכות | אורך: **{cut['length']} ס\"מ**")
+                
+                st.markdown("---")
+                col_btn1, col_btn2 = st.columns(2)
+                
+                if col_btn1.button("📂 טען פרויקט זה למחשבון הראשי", key=f"load_p_page_{p_idx}", use_container_width=True):
+                    st.session_state.project_groups = project['groups_data']
+                    st.success(f"הפרויקט '{project['project_name']}' נטען בהצלחה! עבור לעמוד '📊 חישוב פרויקט ושרטוטים' כדי לצפות בחישובים המלאים.")
+                    st.rerun()
+                    
+                if col_btn2.button("❌ מחק פרויקט זה לצמיתות מהארכיון", key=f"del_p_page_{p_idx}", use_container_width=True):
+                    st.session_state.saved_projects.pop(p_idx)
+                    with st.spinner("מוחק ומעדכן את הארכיון בענן..."):
+                        if save_to_github("saved_projects.json", st.session_state.saved_projects, f"🗑️ מחיקת פרויקט מהארכיון"):
+                            st.success("הפרויקט נמחק בהצלחה מהענן!")
+                            st.rerun()
