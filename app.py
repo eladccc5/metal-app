@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import json
+import requests
+import base64
 
 # -----------------------------------------------------------------------------
 # הגדרות עיצוב ומרכוז טבלאות (CSS מיושר ותיקון סליידרים גלובלי)
@@ -34,10 +37,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# פונקציות טעינה ושמירה אוטומטית מול גוגל שיטס (המרת CSV פשוטה)
+# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה - מעודכן עבורך!
 # -----------------------------------------------------------------------------
-# שים לב: החלף את הקישור כאן בקישור של הגיליון שלך (שהוגדר כ-Editor לכולם עם הקישור)
-SHEET_URL = "YOUR_GOOGLE_SHEET_URL_HERE"
+GITHUB_USERNAME = "eladccc5"             
+GITHUB_REPO = "metal-app"                
+GITHUB_TOKEN = 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     
 
 def get_initial_catalog():
     return {
@@ -67,31 +71,44 @@ def get_initial_catalog():
         }
     }
 
+# פונקציה שטוענת את המחירים ישירות מ-GitHub בזמן עלייה
 def load_catalog():
-    base_catalog = get_initial_catalog()
-    if SHEET_URL == "YOUR_GOOGLE_SHEET_URL_HERE":
-        return base_catalog
+    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/saved_prices.json"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
     try:
-        csv_url = SHEET_URL.replace('/edit?usp=sharing', '/export?format=csv').replace('/edit#gid=', '/export?format=csv&gid=')
-        if '/edit' in csv_url and '/export' not in csv_url:
-            csv_url = csv_url.split('/edit')[0] + '/export?format=csv'
-        df_sheet = pd.read_csv(csv_url)
-        
-        for _, row in df_sheet.iterrows():
-            cat = str(row['Category'])
-            dim = str(row['Dimension'])
-            thk = str(row['Thickness'])
-            price = float(row['Price'])
-            
-            if cat in base_catalog:
-                if "prices" not in base_catalog[cat]:
-                    base_catalog[cat]["prices"] = {}
-                if dim not in base_catalog[cat]["prices"]:
-                    base_catalog[cat]["prices"][dim] = {}
-                base_catalog[cat]["prices"][dim][thk] = price
-        return base_catalog
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            content_b64 = res.json().get("content")
+            content_str = base64.b64decode(content_b64).decode("utf-8")
+            return json.loads(content_str)
     except:
-        return base_catalog
+        pass
+    return get_initial_catalog()
+
+# פונקציה שמעדכנת את ה-GitHub שלך בלחיצת כפתור מהאתר
+def save_catalog_to_github(catalog_data):
+    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/saved_prices.json"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
+    content_str = json.dumps(catalog_data, ensure_ascii=False, indent=4)
+    content_bytes = content_str.encode("utf-8")
+    content_b64 = base64.b64encode(content_bytes).decode("utf-8")
+    
+    res = requests.get(url, headers=headers)
+    sha = None
+    if res.status_code == 200:
+        sha = res.json().get("sha")
+        
+    data = {
+        "message": "🔄 עדכון מחירון אוטומטי מהאפליקציה",
+        "content": content_b64,
+        "branch": "main"
+    }
+    if sha:
+        data["sha"] = sha
+        
+    put_res = requests.put(url, headers=headers, json=data)
+    return put_res.status_code in [200, 201]
 
 # -----------------------------------------------------------------------------
 # אתחול הנתונים באפליקציה
@@ -157,11 +174,11 @@ st.sidebar.subheader("🔥 עלויות חיצוניות")
 oven_painting_cost = st.sidebar.number_input("עלות צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
 
 # =============================================================================
-# עמוד 1: עריכת מחירון ישירות באפליקציה + כפתור שמירה קשיח
+# עמוד 1: עריכת מחירון ישירות באפליקציה + שמירה קבועה ל-GitHub
 # =============================================================================
 if page == "💰 עמוד מחירון ומלאי ברזל":
     st.title("📋 קטלוג ומחירון ברזל דינמי")
-    st.write("עדכן את המחירים ישירות בטבלאות למטה. בסיום, לחץ על כפתור השמירה בתחתית העמוד כדי לשמור אותם לתמיד.")
+    st.write("עדכן את המחירים ישירות בטבלאות למטה. בסיום, לחץ על כפתור השמירה בתחתית העמוד כדי לשמור אותם לתמיד בשרת.")
 
     cat_keys = list(st.session_state.dynamic_catalog.keys())
     if cat_keys:
@@ -181,7 +198,6 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     
                 df = pd.DataFrame(data_matrix)
                 
-                # טבלה פתוחה לעריכה מלאה ישירות באפליקציה!
                 edited_df = st.data_editor(
                     df,
                     key=f"editor_sheet_{mat_type}",
@@ -190,7 +206,6 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                     disabled=["מידות"]
                 )
                 
-                # עדכון ה-Session State הפנימי בזמן אמת
                 if "prices" not in info:
                     info["prices"] = {}
                 for _, row in edited_df.iterrows():
@@ -201,12 +216,15 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                         info["prices"][dim][thk] = float(row[thk])
 
         st.markdown("---")
-        st.subheader("💾 שמירת הנתונים")
-        st.info("כדי שהמחירים שהקלטת למעלה לא יימחקו כשהאתר הולך לישון, לחץ על הכפתור הבא כדי לגבות אותם בצורה מאובטחת:")
+        st.subheader("💾 שמירה קבועה לענן")
         
-        if st.button("📁 שמור את כל המחירים החדשים לענן", type="primary"):
-            # יצירת מבנה שטוח לשמירה בגוגל שיטס במידת הצורך, או הודעה למשתמש
-            st.success("המחירים עודכנו בהצלחה בזיכרון השרת! (על מנת לאפשר סנכרון כתיבה מלא לגוגל שיטס ללא קוד מסובך, מומלץ להשתמש בחיבור המקורי).")
+        if st.button("📁 שמור את כל המחירים החדשים לתמיד", type="primary"):
+            with st.spinner("שומר את הנתונים בשרת GitHub..."):
+                success = save_catalog_to_github(st.session_state.dynamic_catalog)
+                if success:
+                    st.success("🔥 כל המחירים נשמרו בהצלחה בתוך השרת! הם לא יימחקו יותר לעולם.")
+                else:
+                    st.error("תקלה בתקשורת עם GitHub. ודא שהרשאות ה-repo מסומנות נכון.")
                         
 # =============================================================================
 # עמוד 2: מחשבון פרויקט
