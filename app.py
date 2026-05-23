@@ -37,11 +37,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה - מעודכן עבורך!
+# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה - מושך מה-Secrets המאובטח!
 # -----------------------------------------------------------------------------
 GITHUB_USERNAME = "eladccc5"             
 GITHUB_REPO = "metal-app"                
-GITHUB_TOKEN ="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"  
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]     
 
 def get_initial_catalog():
     return {
