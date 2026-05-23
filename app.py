@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import requests
 import base64
+import re
 
 # -----------------------------------------------------------------------------
 # הגדרות עיצוב ומרכוז טבלאות (CSS מיושר ותיקון סליידרים גלובלי)
@@ -59,11 +60,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה - מושך מה-Secrets המאובטח
+# הגדרות חיבור קשיח ל-GitHub לצורך שמירה קבועה
 # -----------------------------------------------------------------------------
 GITHUB_USERNAME = "eladccc5"             
 GITHUB_REPO = "metal-app"                
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]     
+GITHUB_TOKEN = "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"     
 
 def get_initial_catalog():
     return {
@@ -144,12 +145,26 @@ def save_to_github(filename, data_to_save, commit_message):
     put_res = requests.put(url, headers=headers, json=data)
     return put_res.status_code in [200, 201]
 
+def parse_dimension_key(dim_str):
+    """מחלץ מספרים מתוך הטקסט של המידה כדי למיין מהקטן לגדול בצורה נכונה"""
+    cleaned = dim_str.replace('*', 'x').replace('X', 'x')
+    numbers = [float(s) for s in re.findall(r'\d+\.?\d*', cleaned)]
+    return numbers if numbers else [0.0]
+
+def sort_dimensions_list(dims_list):
+    """ממיין את רשימת המידות מהקטן לגדול"""
+    return sorted(list(set(dims_list)), key=parse_dimension_key)
+
 def load_catalog():
     current = fetch_from_github("saved_prices.json", get_initial_catalog)
     default = get_initial_catalog()
     for k, v in default.items():
         if k not in current:
             current[k] = v
+    
+    # מיון אוטומטי של המידות בכל הפעלה
+    for mat_type in current:
+        current[mat_type]["dimensions"] = sort_dimensions_list(current[mat_type]["dimensions"])
     return current
 
 def load_projects():
@@ -224,11 +239,11 @@ st.sidebar.subheader("🔥 עלויות חיצוניות")
 oven_painting_cost = st.sidebar.number_input("עלות צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
 
 # =============================================================================
-# עמוד 1: עריכת מחירון + הוספת מידות/עוביים חדשים דינמית
+# עמוד 1: עריכת מחירון + הוספת/מחיקת מידות דינמית
 # =============================================================================
 if page == "💰 עמוד מחירון ומלאי ברזל":
     st.title("📋 קטלוג ומחירון ברזל דינמי")
-    st.write("עדכן את המחירים ישירות בטבלאות למטה, או הוסף מידות חדשות בסקשן הצהוב בתחתית.")
+    st.write("עדכן את המחירים ישירות בטבלאות למטה, או נהל את המידות והקטלוג בסקשן הצהוב בתחתית.")
 
     cat_keys = list(st.session_state.dynamic_catalog.keys())
     if cat_keys:
@@ -259,41 +274,57 @@ if page == "💰 עמוד מחירון ומלאי ברזל":
                         info["prices"][dim][thk] = float(row[thk])
 
         # ---------------------------------------------------------------------
-        # התיקון: אזור ניהול והוספת גדלים חדשים לקטלוג באופן דינמי
+        # אזור ניהול: הוספה ומחיקה של מידות מהקטלוג
         # ---------------------------------------------------------------------
         st.markdown("<div class='admin-box'>", unsafe_allow_html=True)
-        st.subheader("🛠️ ניהול והרחבת הקטלוג (הוספת גדלים ועוביים חדשים)")
+        st.subheader("🛠️ ניהול והרחבת הקטלוג (הוספה ומחיקה של מידות ועוביים)")
         
         admin_c1, admin_c2, admin_c3 = st.columns(3)
         
         with admin_c1:
-            target_type = st.selectbox("1. בחר סוג ברזל לעדכון:", cat_keys, key="admin_target_type")
+            target_type = st.selectbox("1. בחר סוג ברזל לניהול:", cat_keys, key="admin_target_type")
+            
         with admin_c2:
-            new_dim_input = st.text_input("2. הוסף מידה חדשה (למשל: 45x45 או 15 מ\"מ):", key="new_dim_text")
+            st.markdown("**➕ הוספת מידה או עובי חדשים:**")
+            new_dim_input = st.text_input("הוסף מידה חדשה (למשל: 45x45 או 15 מ\"מ):", key="new_dim_text")
             if st.button("➕ הוסף מידה לרשימה"):
                 if new_dim_input and new_dim_input not in st.session_state.dynamic_catalog[target_type]["dimensions"]:
                     st.session_state.dynamic_catalog[target_type]["dimensions"].append(new_dim_input)
-                    st.success(f"המידה {new_dim_input} התווספה זמנית לטבלה של {target_type}! אל תשכח ללחוץ על כפתור השמירה למטה.")
+                    # מיון אוטומטי מהקטן לגדול מייד לאחר ההוספה
+                    st.session_state.dynamic_catalog[target_type]["dimensions"] = sort_dimensions_list(st.session_state.dynamic_catalog[target_type]["dimensions"])
+                    st.success(f"המידה {new_dim_input} התווספה ומוינה בהצלחה! לחץ על שמירה למטה.")
                     st.rerun()
                 elif new_dim_input:
                     st.warning("מידה זו כבר קיימת בקטלוג.")
-        with admin_c3:
-            new_thk_input = st.text_input("3. הוסף עובי חדש (למשל: 4.0 מ\"מ):", key="new_thk_text")
+                    
+            new_thk_input = st.text_input("הוסף עובי חדש (למשל: 4.0 מ\"מ):", key="new_thk_text")
             if st.button("➕ הוסף עובי לרשימה"):
                 if new_thk_input and new_thk_input not in st.session_state.dynamic_catalog[target_type]["thicknesses"]:
                     st.session_state.dynamic_catalog[target_type]["thicknesses"].append(new_thk_input)
-                    st.success(f"העובי {new_thk_input} התווסף זמנית לטבלה של {target_type}! אל תשכח ללחוץ על כפתור השמירה למטה.")
+                    st.success(f"העובי {new_thk_input} התווסף זמנית! לחץ על שמירה למטה.")
                     st.rerun()
                 elif new_thk_input:
                     st.warning("עובי זה כבר קיים בקטלוג.")
+                    
+        with admin_c3:
+            st.markdown("**❌ מחיקת מידה קיימת (אם הוספת בטעות):**")
+            current_dims = st.session_state.dynamic_catalog[target_type]["dimensions"]
+            dim_to_delete = st.selectbox("בחר מידה להסרה מהטבלה:", current_dims, key="dim_to_delete_select")
+            if st.button("❌ מחק מידה נבחרת", type="secondary"):
+                if dim_to_delete in st.session_state.dynamic_catalog[target_type]["dimensions"]:
+                    st.session_state.dynamic_catalog[target_type]["dimensions"].remove(dim_to_delete)
+                    # מחיקה גם מתוך מבנה המחירים השמור כדי שלא יישאר זבל
+                    if "prices" in st.session_state.dynamic_catalog[target_type] and dim_to_delete in st.session_state.dynamic_catalog[target_type]["prices"]:
+                        del st.session_state.dynamic_catalog[target_type]["prices"][dim_to_delete]
+                    st.success(f"המידה {dim_to_delete} הוסרה מהטבלה הזמנית. לחץ על שמירה למטה כדי לעדכן בענן.")
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-        # ---------------------------------------------------------------------
 
         st.markdown("---")
-        if st.button("📁 שמור את כל המחירים והגדלים החדשים לתמיד", type="primary"):
+        if st.button("📁 שמור את כל השינויים, המידות והמיון לתמיד", type="primary"):
             with st.spinner("שומר את הנתונים המעודכנים בשרת GitHub..."):
-                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומבנה גדלים דינמי"):
-                    st.success("🔥 כל המחירים, המידות והעוביים החדשים נשמרו בהצלחה בענן!")
+                if save_to_github("saved_prices.json", st.session_state.dynamic_catalog, "🔄 עדכון מחירון ומבנה גדלים ממוין"):
+                    st.success("🔥 כל המחירים, המידות והעוביים נשמרו, מוינו ועודכנו בהצלחה בענן!")
                 else:
                     st.error("תקלה בתקשורת עם GitHub.")
                         
