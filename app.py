@@ -144,20 +144,21 @@ def save_to_github(filename, data_to_save, commit_message):
 if 'dynamic_catalog' not in st.session_state:
     st.session_state.dynamic_catalog = fetch_from_github("saved_prices.json", get_initial_catalog)
 if 'saved_projects' not in st.session_state:
-    st.session_state.saved_projects = fetch_from_github("saved_projects.json", list)
+    raw_projects = fetch_from_github("saved_projects.json", list)
+    # וידוא שכל פרויקט שנטען הוא מילון תקין עם מפתח שם פרויקט
+    st.session_state.saved_projects = [p for p in raw_projects if isinstance(p, dict) and 'project_name' in p]
 
-# ניהול ניווט אקטיבי בין עמודים (בשביל לאפשר טעינה אוטומטית לעמוד המחשבון)
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "📊 חישוב פרויקט"
 
-# משתני ברירת מחדל לשדות הלקוח בראש עמוד החישוב
+# משתני שדות הלקוח
 if 'input_project_name' not in st.session_state: st.session_state.input_project_name = ""
 if 'input_client_name' not in st.session_state: st.session_state.input_client_name = ""
 if 'input_client_phone' not in st.session_state: st.session_state.input_client_phone = ""
 if 'input_client_address' not in st.session_state: st.session_state.input_client_address = ""
 if 'input_project_date' not in st.session_state: st.session_state.input_project_date = datetime.now().date()
 
-# משתני ברירת מחדל עבור ה-Sidebar
+# משתני ה-Sidebar
 if 'input_num_workers' not in st.session_state: st.session_state.input_num_workers = 1
 if 'input_days_of_work' not in st.session_state: st.session_state.input_days_of_work = 1
 if 'input_daily_wage' not in st.session_state: st.session_state.input_daily_wage = 0.0
@@ -180,7 +181,7 @@ if 'project_groups' not in st.session_state:
     }]
 
 # =============================================================================
-# 3. אלגוריתם חיתוך משודרג ואופטימלי (Best-Fit Decreasing)
+# 3. אלגוריתם חיתוך (Best-Fit Decreasing)
 # =============================================================================
 def calculate_optimal_cutting(cuts_list, max_capacity):
     all_pieces = []
@@ -237,7 +238,6 @@ def generate_html_bars_for_pdf(bars_plan, max_bar_len):
         html_str += f"<p style='font-size: 11px; margin: 2px 0;'><b>מוט #{b_id + 1}:</b> {', '.join([str(p)+'cm' for p in bar_cuts])} | <b>פחת:</b> {leftover:.1f}cm</p>"
     return html_str
 
-# פונקציה לייצור קובץ PDF בינארי אמיתי ישירות בזיכרון האפליקציה
 def generate_pdf_file_bytes(p_name, c_name, phone, addr, p_date, mult, iron_cost, ext_list, total_net, final_price, materials_html):
     html_content = f"""
     <html>
@@ -273,7 +273,7 @@ def generate_pdf_file_bytes(p_name, c_name, phone, addr, p_date, mult, iron_cost
         </div>
         <div class="section">
             <div class="title">🧱 פירוט חומרי גלם ותוכניות חיתוך</div>
-            {materials_html if materials_html else '<p style="font-size:12px;">לא הוזנו חומרי גלם לפרויקט זה או שהופק מהארכיון המהיר.</p>'}
+            {materials_html if materials_html else '<p style="font-size:12px;">לא הוזנו חומרי גלם לפרויקט זה.</p>'}
         </div>
         <div class="section">
             <div class="title">📊 פירוט עלויות והוצאות נלוות</div>
@@ -424,7 +424,6 @@ elif st.session_state.current_page == "📊 חישוב פרויקט":
             st.markdown(f"**💡 נדרשים {g_bars_count} מוטות. עלות ברזל: ₪ {g_cost:,.2f}**")
             display_visual_bars(bars_plan, max_len)
             
-            # הכנת מקטע ה-HTML של החומר הנוכחי לתוך ה-PDF
             bars_pdf_text = generate_html_bars_for_pdf(bars_plan, max_len)
             pdf_materials_html += f"""
             <div style="margin-bottom: 10px; padding: 5px; border-bottom: 1px dashed #ccc;">
@@ -446,7 +445,6 @@ elif st.session_state.current_page == "📊 חישוב פרויקט":
     cc3.metric("עלויות נטו לפרויקט", f"₪ {total_expenses:,.2f}")
     st.markdown(f"## 💰 הצעת מחיר מומלצת ללקוח: ₪ {client_final_price:,.2f}")
 
-    # יצירת קובץ ה-PDF הבינארי האמיתי להורדה עם רשימת החומרים
     ext_pdf_dict = {'labor': calculated_labor_cost, 'powder': powder_coating_cost, 'laser': laser_cutting_cost, 'transport': transportation_cost, 'crane': crane_cost, 'carpentry': carpentry_cost, 'glazing': glazing_cost, 'other': other_expenses}
     pdf_bytes = generate_pdf_file_bytes(save_project_name, client_name, client_phone, client_address, project_date, profit_multiplier, total_project_iron_cost, ext_pdf_dict, total_expenses, client_final_price, pdf_materials_html)
 
@@ -463,33 +461,79 @@ elif st.session_state.current_page == "📊 חישוב פרויקט":
         )
     with c_btn2:
         if st.button("💾 שמור פרויקט לארכיון הענן", type="primary", use_container_width=True):
-            if not save_project_name: st.error("אנא מלא שם פרויקט.")
+            if not save_project_name: 
+                st.error("אנא מלא שם פרויקט.")
             else:
-                entry = {'project_name': save_project_name, 'client_name': client_name, 'phone': client_phone, 'address': client_address, 'date': str(project_date), 'multiplier': profit_multiplier, 'labor_data': {'num_workers': num_workers, 'days_of_work': days_of_work, 'daily_wage': daily_wage}, 'external_expenses': {'powder': powder_coating_cost, 'laser': laser_cutting_cost, 'transport': transportation_cost, 'crane': crane_cost, 'carpentry': carpentry_cost, 'glazing': glazing_cost, 'other': other_expenses}, 'groups_data': st.session_state.project_groups}
-                idx_exist = next((i for i, p in enumerate(st.session_state.saved_projects) if p.get('project_name') == save_project_name), -1)
-                if idx_exist != -1: st.session_state.saved_projects[idx_exist] = entry
-                else: st.session_state.saved_projects.append(entry)
-                if save_to_github("saved_projects.json", st.session_state.saved_projects, f"שמירת פרויקט: {save_project_name}"): st.success("נשמר בארכיון!")
+                entry = {
+                    'project_name': save_project_name, 
+                    'client_name': client_name, 
+                    'phone': client_phone, 
+                    'address': client_address, 
+                    'date': str(project_date), 
+                    'multiplier': profit_multiplier, 
+                    'labor_data': {'num_workers': num_workers, 'days_of_work': days_of_work, 'daily_wage': daily_wage}, 
+                    'external_expenses': {'powder': powder_coating_cost, 'laser': laser_cutting_cost, 'transport': transportation_cost, 'crane': crane_cost, 'carpentry': carpentry_cost, 'glazing': glazing_cost, 'other': other_expenses}, 
+                    'groups_data': st.session_state.project_groups
+                }
+                
+                # מניעת קריסה: סינון ובדיקה אם הפרויקט כבר קיים בארכיון לעדכון
+                idx_exist = -1
+                for i, p in enumerate(st.session_state.saved_projects):
+                    if isinstance(p, dict) and p.get('project_name') == save_project_name:
+                        idx_exist = i
+                        break
+                        
+                if idx_exist != -1: 
+                    st.session_state.saved_projects[idx_exist] = entry
+                else: 
+                    st.session_state.saved_projects.append(entry)
+                    
+                if save_to_github("saved_projects.json", st.session_state.saved_projects, f"שמירת פרויקט: {save_project_name}"): 
+                    st.success("נשמר בארכיון!")
+                else:
+                    st.error("שגיאה בסנכרון מול השרת.")
 
 # =============================================================================
 # 7. עמוד 3: ארכיון פרויקטים
 # =============================================================================
 else:
     st.title("📂 ארכיון פרויקטים שמורים")
-    if not st.session_state.saved_projects: st.info("אין פרויקטים שמורים.")
+    if not st.session_state.saved_projects: 
+        st.info("אין פרויקטים שמורים.")
     else:
         for p_idx, project in enumerate(list(st.session_state.saved_projects)):
-            p_title, c_name, p_date = project.get('project_name', 'ללא שם'), project.get('client_name', '-'), project.get('date', '-')
+            if not isinstance(project, dict):
+                continue
+            p_title = project.get('project_name', 'ללא שם')
+            c_name = project.get('client_name', '-')
+            p_date = project.get('date', '-')
+            
             with st.expander(f"📁 פרויקט: {p_title} | לקוח: {c_name} | תאריך: {p_date}"):
                 c_actions1, c_actions2, c_actions3 = st.columns(3)
                 
                 if c_actions1.button("🔄 טען פרויקט זה לעמוד החישוב (עריכה)", key=f"load_{p_idx}", use_container_width=True):
-                    st.session_state.input_project_name, st.session_state.input_client_name, st.session_state.input_client_phone, st.session_state.input_client_address, st.session_state.input_project_date = project.get('project_name', ''), project.get('client_name', ''), project.get('phone', ''), project.get('address', ''), project.get('date', str(datetime.now().date()))
+                    st.session_state.input_project_name = project.get('project_name', '')
+                    st.session_state.input_client_name = project.get('client_name', '')
+                    st.session_state.input_client_phone = project.get('phone', '')
+                    st.session_state.input_client_address = project.get('address', '')
+                    st.session_state.input_project_date = project.get('date', str(datetime.now().date()))
+                    
                     lab = project.get('labor_data', {})
-                    st.session_state.input_num_workers, st.session_state.input_days_of_work, st.session_state.input_daily_wage = lab.get('num_workers', 1), lab.get('days_of_work', 1), lab.get('daily_wage', 0.0)
+                    st.session_state.input_num_workers = lab.get('num_workers', 1)
+                    st.session_state.input_days_of_work = lab.get('days_of_work', 1)
+                    st.session_state.input_daily_wage = lab.get('daily_wage', 0.0)
+                    
                     ext = project.get('external_expenses', {})
-                    st.session_state.input_powder, st.session_state.input_laser, st.session_state.input_transport, st.session_state.input_crane, st.session_state.input_carpentry, st.session_state.input_glazing, st.session_state.input_other = ext.get('powder', 0.0), ext.get('laser', 0.0), ext.get('transport', 0.0), ext.get('crane', 0.0), ext.get('carpentry', 0.0), ext.get('glazing', 0.0), ext.get('other', 0.0)
-                    st.session_state.input_multiplier, st.session_state.project_groups = project.get('multiplier', 1.5), project.get('groups_data', [])
+                    st.session_state.input_powder = ext.get('powder', 0.0)
+                    st.session_state.input_laser = ext.get('laser', 0.0)
+                    st.session_state.input_transport = ext.get('transport', 0.0)
+                    st.session_state.input_crane = ext.get('crane', 0.0)
+                    st.session_state.input_carpentry = ext.get('carpentry', 0.0)
+                    st.session_state.input_glazing = ext.get('glazing', 0.0)
+                    st.session_state.input_other = ext.get('other', 0.0)
+                    
+                    st.session_state.input_multiplier = project.get('multiplier', 1.5)
+                    st.session_state.project_groups = project.get('groups_data', [])
                     st.session_state.current_page = "📊 חישוב פרויקט"
                     st.rerun()
 
@@ -500,15 +544,14 @@ else:
                 
                 for group in project.get('groups_data', []):
                     st.markdown(f"🔹 **חומר:** {group['sel_type']} ({group['sel_dim']} | {group['sel_thk']})")
-                    max_len = st.session_state.dynamic_catalog[group['sel_type']]['length']
-                    s_price = st.session_state.dynamic_catalog[group['sel_type']]["prices"].get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
+                    max_len = st.session_state.dynamic_catalog.get(group['sel_type'], {}).get('length', 600)
+                    s_price = st.session_state.dynamic_catalog.get(group['sel_type'], {}).get("prices", {}).get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
                     bars_plan, err = calculate_optimal_cutting(group['cuts'], max_len)
                     if not err:
                         g_bars_cnt = len(bars_plan)
                         archived_iron_cost += g_bars_cnt * s_price
                         display_visual_bars(bars_plan, max_len)
                         
-                        # בניית מקטע החומרים לפרויקט מהארכיון
                         arch_cuts_summary = "".join([f"{c['qty']} יחידות x {c['length']} ס\"מ | " for c in group['cuts']])
                         arch_bars_pdf_text = generate_html_bars_for_pdf(bars_plan, max_len)
                         pdf_archive_materials_html += f"""
@@ -520,7 +563,8 @@ else:
                         </div>
                         """
                 
-                ext, lab = project.get('external_expenses', {}), project.get('labor_data', {})
+                ext = project.get('external_expenses', {})
+                lab = project.get('labor_data', {})
                 lab_total = lab.get('num_workers', 0) * lab.get('days_of_work', 0) * lab.get('daily_wage', 0)
                 ext_total = sum(ext.values()) if isinstance(ext, dict) else 0.0
                 ext_total += lab_total
@@ -533,7 +577,6 @@ else:
                 c2.metric("הוצאות ועבודה", f"₪ {ext_total:,.2f}")
                 c3.metric("מחיר סופי ללקוח", f"₪ {final_quote_archived:,.2f}")
                 
-                # בניית קובץ ה-PDF עבור הפרויקט בארכיון עם רשימת החומרים המלאה
                 arch_ext_dict = {'labor': lab_total, 'powder': ext.get('powder', 0.0), 'laser': ext.get('laser', 0.0), 'transport': ext.get('transport', 0.0), 'crane': ext.get('crane', 0.0), 'carpentry': ext.get('carpentry', 0.0), 'glazing': ext.get('glazing', 0.0), 'other': ext.get('other', 0.0)}
                 arch_pdf_bytes = generate_pdf_file_bytes(p_title, project.get('client_name','-'), project.get('phone','-'), project.get('address','-'), project.get('date','-'), project.get('multiplier', 1.5), archived_iron_cost, arch_ext_dict, total_archived_expenses, final_quote_archived, pdf_archive_materials_html)
                 
@@ -550,5 +593,7 @@ else:
                 if c_actions3.button("❌ מחק פרויקט לצמיתות", key=f"del_{p_idx}", use_container_width=True):
                     st.session_state.saved_projects.pop(p_idx)
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"מחיקת פרויקט {p_title}"):
-                        st.success("נמחק!")
+                        st.success("הפרויקט נמחק בהצלחה!")
                         st.rerun()
+                    else:
+                        st.error("תקלה בעדכון המחיקה מול השרת.")
