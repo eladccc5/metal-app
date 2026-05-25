@@ -65,5 +65,71 @@
                 ]
             }
         ]
+    },
+    {
+        "project_name": "מסגרות ליוסי",
+        "client_name": "יוסי ",
+        "phone": "0526510085",
+        "address": "אליעזר ארגוב 12 ירושלים",
+        "date": "2026-05-25",
+        "multiplier": 3.0,
+        "labor_data": {
+            "num_workers": 2,
+            "days_of_work": 2,
+            "daily_wage": 800.0
+        },
+        "external_expenses": {
+            "powder": 250.0,
+            "laser": 0.0,
+            "transport": 0.0,
+            "crane": 0.0,
+            "carpentry": 0.0,
+            "glazing": 0.0,
+            "other": 0.0
+        },
+        "groups_data": [
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "20x20",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 111.5,
+                        "qty": 5
+                    },
+                    {
+                        "length": 62.5,
+                        "qty": 6
+                    },
+                    {
+                        "length": 335.0,
+                        "qty": 5
+                    },
+                    {
+                        "length": 42.0,
+                        "qty": 2
+                    },
+                    {
+                        "length": 15.0,
+                        "qty": 1
+                    }
+                ]
+            },
+            {
+                "sel_type": "מוט מרובע מלא",
+                "sel_dim": "12x12",
+                "sel_thk": "מלא",
+                "cuts": [
+                    {
+                        "length": 100.0,
+                        "qty": 60
+                    },
+                    {
+                        "length": 73.0,
+                        "qty": 60
+                    }
+                ]
+            }
+        ]
     }
 ]
