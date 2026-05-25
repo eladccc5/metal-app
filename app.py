@@ -84,7 +84,6 @@ if "GITHUB_TOKEN" in st.secrets:
 else:
     GITHUB_TOKEN = ""
 
-# קטלוג ברירת מחדל במקרה שהקובץ בענן ריק או לא קיים
 def get_initial_catalog():
     return {
         "פרופיל מרובע": {
@@ -173,7 +172,7 @@ if 'project_groups' not in st.session_state:
     }]
 
 # =============================================================================
-# 3. אלגוריתם חיתוך אופטימלי (Greedy Roll Cutting)
+# 3. אלגוריתם חיתוך משודרג ואופטימלי (Best-Fit Decreasing)
 # =============================================================================
 def calculate_optimal_cutting(cuts_list, max_capacity):
     all_pieces = []
@@ -183,17 +182,27 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
                 return None, f"אורך {cut['length']} חורג מאורך מוט מקסימלי ({max_capacity} ס\"מ)."
             all_pieces.append(cut['length'])
             
+    # מיון מהגדול לקטן כדי לשבץ קודם חתיכות ארוכות ומסובכות
     all_pieces.sort(reverse=True)
     bars = []
     
     for piece in all_pieces:
-        placed = False
-        for bar in bars:
-            if sum(bar) + piece <= max_capacity:
-                bar.append(piece)
-                placed = True
-                break
-        if not placed: 
+        best_bar_idx = -1
+        min_leftover = max_capacity + 1
+        
+        # חיפוש המוט הקיים שבו החתיכה תתאים בצורה הכי הדוקה (ניצול פחת מקסימלי)
+        for idx, bar in enumerate(bars):
+            rem_space = max_capacity - sum(bar)
+            if rem_space >= piece:
+                leftover_after_placement = rem_space - piece
+                if leftover_after_placement < min_leftover:
+                    min_leftover = leftover_after_placement
+                    best_bar_idx = idx
+                    
+        # אם נמצא מוט מתאים, נשבץ בו את החתיכה. אם לא, נפתח מוט חדש.
+        if best_bar_idx != -1:
+            bars[best_bar_idx].append(piece)
+        else:
             bars.append([piece])
             
     return bars, None
@@ -242,7 +251,6 @@ other_expenses = st.sidebar.number_input("הוצאות שונות אחרות (�
 st.sidebar.markdown("---")
 profit_multiplier = st.sidebar.slider("מכפיל רווח גלובלי:", 1.0, 4.0, 1.5, 0.1)
 
-# סיכום כל ההוצאות שאינן חומר גלם (ברזל)
 total_external_expenses = (calculated_labor_cost + powder_coating_cost + laser_cutting_cost + 
                            transportation_cost + crane_cost + carpentry_cost + glazing_cost + other_expenses)
 
@@ -261,7 +269,6 @@ if page == "💰 מחירון ברזל":
             info = st.session_state.dynamic_catalog[mat_type]
             data_matrix = []
             
-            # בניית המטריצה להצגה ב-Data Editor
             for d in info["dimensions"]:
                 row_dict = {"מידות": d}
                 for thk in info["thicknesses"]: 
@@ -270,7 +277,6 @@ if page == "💰 מחירון ברזל":
                 
             edited_df = st.data_editor(pd.DataFrame(data_matrix), key=f"ed_{mat_type}", use_container_width=True, hide_index=True)
             
-            # עדכון השינויים חזרה לתוך ה-Session State
             for _, row in edited_df.iterrows():
                 dim = row["מידות"]
                 if dim not in info["prices"]: 
@@ -291,7 +297,6 @@ if page == "💰 מחירון ברזל":
 elif page == "📊 חישוב פרויקט":
     st.title("📊 מחשבון פרויקטים, חיתוך אופטימלי ועלויות")
     
-    # אזור חדש בראש העמוד: פרטי פרויקט ולקוח בפריסה אופקית רחבה
     st.markdown("<div class='top-project-box'>", unsafe_allow_html=True)
     st.subheader("👤 פרטי הפרויקט והלקוח הנוכחי")
     
@@ -317,7 +322,6 @@ elif page == "📊 חישוב פרויקט":
 
     total_project_iron_cost = 0.0
     
-    # ריצה על כל קבוצות החומרים שהוגדרו לפרויקט הנוכחי
     for g_idx, group in enumerate(st.session_state.project_groups):
         st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
         
@@ -331,7 +335,6 @@ elif page == "📊 חישוב פרויקט":
             st.rerun()
         
         st.markdown("##### רשימת חיתוכים נדרשים:")
-        # ריצה על פריטי החיתוך בתוך הקבוצה
         for c_idx, cut in enumerate(group['cuts']):
             cc1, cc2, cc3 = st.columns([3, 3, 1])
             cut['length'] = cc1.number_input("אורך מבוקש (ס\"מ):", min_value=0.1, value=float(cut['length']), key=f"l_{g_idx}_{c_idx}")
@@ -345,7 +348,6 @@ elif page == "📊 חישוב פרויקט":
             group['cuts'].append({'length': 50.0, 'qty': 1})
             st.rerun()
 
-        # חישוב תוכנית החיתוך הגרפית והעלויות לקבוצה זו
         max_len = st.session_state.dynamic_catalog[group['sel_type']]['length']
         single_bar_price = st.session_state.dynamic_catalog[group['sel_type']]["prices"].get(group['sel_dim'], {}).get(group['sel_thk'], 0.0)
         
@@ -362,12 +364,10 @@ elif page == "📊 חישוב פרויקט":
             
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # סיכום כספי גלובלי של כל הפרויקט
     st.markdown("---")
     total_expenses = total_project_iron_cost + total_external_expenses
     client_final_price = total_expenses * profit_multiplier
     
-    # תצוגת עלויות מרוכזת בשבילך
     cc1, cc2, cc3 = st.columns(3)
     cc1.metric("סה\"כ עלות ברזל נדרש", f"₪ {total_project_iron_cost:,.2f}")
     cc2.metric("סה\"כ הוצאות ועבודה נלווים", f"₪ {total_external_expenses:,.2f}")
@@ -375,7 +375,6 @@ elif page == "📊 חישוב פרויקט":
     
     st.markdown(f"## 💰 הצעת מחיר מומלצת ללקוח (כולל רווח): ₪ {client_final_price:,.2f}")
 
-    # שמירת הפרויקט לארכיון
     st.markdown("---")
     if st.button("💾 שמור פרויקט זה לארכיון הענן", type="primary", use_container_width=True):
         if not save_project_name:
@@ -421,13 +420,13 @@ else:
     if not st.session_state.saved_projects:
         st.info("אין פרויקטים שמורים כרגע בארכיון.")
     else:
-        for p_idx, project in enumerate(st.session_state.saved_projects):
+        # יצירת עותק ללולאה כדי למנוע קריסה בזמן מחיקה
+        for p_idx, project in enumerate(list(st.session_state.saved_projects)):
             p_title = project.get('project_name', 'פרויקט ללא שם')
             c_name = project.get('client_name', '-')
             p_date = project.get('date', '-')
             
             with st.expander(f"📁 פרויקט: {p_title} | לקוח: {c_name} | תאריך: {p_date}"):
-                # 1. הצגת כרטיס לקוח מפורט בתיבה מעוצבת בצבע ירוק רך
                 st.markdown(f"""
                 <div class='customer-info-box'>
                 👤 <b>שם הלקוח:</b> {project.get('client_name','-')} | 📞 <b>מספר טלפון:</b> {project.get('phone','-')} <br>
@@ -435,7 +434,6 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # 2. הרצת אלגוריתם חיתוך והצגה גרפית חיה ישירות בתוך הארכיון!
                 st.subheader("🧱 פקודת חיתוך וחומרים (מחושב חי לפרויקט זה):")
                 archived_iron_cost = 0.0
                 
@@ -453,13 +451,14 @@ else:
                     else:
                         st.error(f"שגיאה בחישוב חיתוך לחלק מקבוצות החומר: {err}")
                 
-                # 3. סיכום העלויות הכלליות של הפרויקט מהארכיון
                 st.markdown("---")
                 ext = project.get('external_expenses', {})
                 lab = project.get('labor_data', {})
                 
                 lab_total = lab.get('num_workers', 0) * lab.get('days_of_work', 0) * lab.get('daily_wage', 0)
-                ext_total = sum(ext.values()) + lab_total
+                ext_total = sum(ext.values()) if isinstance(ext, dict) else 0.0
+                ext_total += lab_total
+                
                 total_archived_expenses = archived_iron_cost + ext_total
                 final_quote_archived = total_archived_expenses * project.get('multiplier', 1.5)
                 
@@ -468,10 +467,12 @@ else:
                 c2.metric("הוצאות ועבודה נלווים", f"₪ {ext_total:,.2f}")
                 c3.metric("הצעת מחיר סופית ללקוח", f"₪ {final_quote_archived:,.2f}")
                 
-                # 4. אפשרות מחיקה מהארכיון
                 st.markdown(" ")
                 if st.button("❌ מחק פרויקט זה לצמיתות", key=f"del_{p_idx}"):
+                    # סינון בטוח של הפרויקט לפי מיקום ברשימה כדי למנוע בעיות של שמות כפולים או חסרים
                     st.session_state.saved_projects.pop(p_idx)
-                    save_to_github("saved_projects.json", st.session_state.saved_projects, f"מחיקת פרויקט {p_title}")
-                    st.success("הפרויקט נמחק.")
-                    st.rerun()
+                    if save_to_github("saved_projects.json", st.session_state.saved_projects, f"מחיקת פרויקט {p_title}"):
+                        st.success("הפרויקט נמחק בהצלחה מהארכיון!")
+                        st.rerun()
+                    else:
+                        st.error("תקלה בעדכון המחיקה מול השרת.")
