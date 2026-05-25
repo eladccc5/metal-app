@@ -347,7 +347,7 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
             total_project_iron_cost += group_iron_cost
             
             st.markdown(f"<div style='margin-top:15px;'>", unsafe_allow_html=True)
-            st.success(f"📊 **תוצאת אופטימיזציה:** נדרשים **{num_bars_needed}** מוטות מלאים. עלות הברזל לקבוצה זו: **₪ {group_iron_cost:,.2f}**")
+            st.success(f"📊 **תוצאת אופטימיזציה:** נדרשים **{num_bars_needed}** מוטות מלאים. עלות الברזל לקבוצה זו: **₪ {group_iron_cost:,.2f}**")
             
             for b_id, bar_cuts in enumerate(bars_plan):
                 used_space = sum(bar_cuts)
@@ -404,7 +404,7 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
         
         if col_s1.button("💾 שמור פרויקט זה לארכיון הענן באפליקציה", use_container_width=True):
             if not GITHUB_TOKEN:
-                st.error("לא נמצא מפתח גישה (Token) מוגדר ב-Secrets של האפליקציה. אננא הגדר אותו תחילה.")
+                st.error("לא נמצא מפתח גישה (Token) מוגדר ב-Secrets של האפליקציה. אנא הגדר אותו תחילה.")
             elif p_name_to_save:
                 new_project_entry = {
                     'project_name': p_name_to_save,
@@ -426,8 +426,16 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
                     },
                     'groups_data': st.session_state.project_groups
                 }
-                st.session_state.saved_projects = [p for p in st.session_state.saved_projects if p['project_name'] != p_name_to_save]
-                st.session_state.saved_projects.append(new_project_entry)
+                
+                # מניעת קריסה: סינון מוגן שתומך גם בפרויקטים ישנים ללא שדה 'project_name'
+                cleaned_saved_projects = []
+                for p in st.session_state.saved_projects:
+                    if isinstance(p, dict) and p.get('project_name') == p_name_to_save:
+                        continue
+                    cleaned_saved_projects.append(p)
+                
+                cleaned_saved_projects.append(new_project_entry)
+                st.session_state.saved_projects = cleaned_saved_projects
                 
                 with st.spinner("שומר פרויקט בארכיון..."):
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"📂 שמירת פרויקט מפורט: {p_name_to_save}"):
@@ -448,7 +456,13 @@ else:
         st.info("הארכיון ריק כרגע או שלא נשמרו פרויקטים בענן.")
     else:
         for p_idx, project in enumerate(st.session_state.saved_projects):
-            with st.expander(f"📁 פרויקט: {project['project_name']}", expanded=False):
+            # הגנה למקרה שיש פרויקט ישן הרוס בקובץ
+            if not isinstance(project, dict):
+                continue
+            
+            p_display_name = project.get('project_name', f"פרויקט ללא שם (#{p_idx})")
+            
+            with st.expander(f"📁 פרויקט: {p_display_name}", expanded=False):
                 col_p1, col_p2 = st.columns(2)
                 col_p1.markdown(f"**מכפיל רווח שהוגדר:** {project.get('multiplier', 1.5)}")
                 
@@ -476,16 +490,16 @@ else:
                 
                 st.markdown("##### 🧱 חומרים וחיתוכים שנשמרו:")
                 for group in project.get('groups_data', []):
-                    st.markdown(f"• **{group['sel_type']}** — מידה: `{group['sel_dim']}` | עובי דופן: `{group['sel_thk']}`")
+                    st.markdown(f"• **{group.get('sel_type', 'ברזל')}** — מידה: `{group.get('sel_dim', '-')}` | עובי דופן: `{group.get('sel_thk', '-')}`")
                     for cut in group.get('cuts', []):
-                        st.markdown(f"  └── 📏 כמות: **{cut['qty']}** חתיכות | אורך: **{cut['length']} ס\"מ**")
+                        st.markdown(f"  └── 📏 כמות: **{cut.get('qty', 1)}** חתיכות | אורך: **{cut.get('length', 0)} ס\"מ**")
                 
                 st.markdown("---")
                 col_btn1, col_btn2 = st.columns(2)
                 
                 if col_btn1.button("📂 טען פרויקט זה למחשבון הראשי", key=f"load_p_page_{p_idx}", use_container_width=True):
-                    st.session_state.project_groups = project['groups_data']
-                    st.success(f"הפרויקט '{project['project_name']}' נטען! עבור לעמוד '📊 חישוב פרויקט ושרטוטים' כדי לראות את החישובים המלאים.")
+                    st.session_state.project_groups = project.get('groups_data', [])
+                    st.success(f"הפרויקט '{p_display_name}' נטען! עבור לעמוד '📊 חישוב פרויקט ושרטוטים' כדי לראות את החישובים המלאים.")
                     st.rerun()
                     
                 if col_btn2.button("❌ מחק פרויקט זה לצמיתות מהארכיון", key=f"del_p_page_{p_idx}", use_container_width=True):
@@ -498,4 +512,4 @@ else:
                                 st.success("הפרויקט נמחק בהצלחה מהענן!")
                                 st.rerun()
                             else:
-                                st.error("תקלה בעדכון המחיקה מול השרת.")
+                                .error("תקלה בעדכון המחיקה מול השרת.")
