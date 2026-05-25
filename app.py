@@ -182,7 +182,6 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
                 return None, f"אורך {cut['length']} חורג מאורך מוט מקסימלי ({max_capacity} ס\"מ)."
             all_pieces.append(cut['length'])
             
-    # מיון מהגדול לקטן כדי לשבץ קודם חתיכות ארוכות ומסובכות
     all_pieces.sort(reverse=True)
     bars = []
     
@@ -190,7 +189,6 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
         best_bar_idx = -1
         min_leftover = max_capacity + 1
         
-        # חיפוש המוט הקיים שבו החתיכה תתאים בצורה הכי הדוקה (ניצול פחת מקסימלי)
         for idx, bar in enumerate(bars):
             rem_space = max_capacity - sum(bar)
             if rem_space >= piece:
@@ -199,7 +197,6 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
                     min_leftover = leftover_after_placement
                     best_bar_idx = idx
                     
-        # אם נמצא מוט מתאים, נשבץ בו את החתיכה. אם לא, נפתח מוט חדש.
         if best_bar_idx != -1:
             bars[best_bar_idx].append(piece)
         else:
@@ -224,6 +221,23 @@ def display_visual_bars(bars_plan, max_bar_len):
         bar_html += "<div style='clear: both;'></div></div>"
         
         st.markdown(bar_html, unsafe_allow_html=True)
+
+# פונקציית עזר ליצירת קוד ה-HTML של הברזלים עבור ה-PDF
+def generate_html_bars_for_pdf(bars_plan, max_bar_len):
+    html_str = ""
+    for b_id, bar_cuts in enumerate(bars_plan):
+        used_space = sum(bar_cuts)
+        leftover = max_bar_len - used_space
+        html_str += f"<div style='margin-top: 10px; font-weight: bold;'>מוט #{b_id + 1} (פחת: {leftover:.1f} ס\"מ):</div>"
+        html_str += "<div style='width: 100%; background-color: #e0e0e0; border: 1px solid #ccc; height: 30px; border-radius: 4px; overflow: hidden; white-space: nowrap; margin-bottom: 10px;'>"
+        for part in bar_cuts:
+            pct = (part / max_bar_len) * 100
+            html_str += f"<div style='display: inline-block; width: {pct}%; background-color: #1976d2; color: white; text-align: center; line-height: 30px; font-size: 12px; border-left: 1px solid white; box-sizing: border-box;'>{part} ס\"מ</div>"
+        if leftover > 0:
+            left_pct = (leftover / max_bar_len) * 100
+            html_str += f"<div style='display: inline-block; width: {left_pct}%; background-color: #d32f2f; color: white; text-align: center; line-height: 30px; font-size: 12px; box-sizing: border-box;'>פחת: {leftover:.1f}</div>"
+        html_str += "</div>"
+    return html_str
 
 # =============================================================================
 # 4. תפריט צדדי (Sidebar) - עלויות ומכפילים בלבד
@@ -292,7 +306,7 @@ if page == "💰 מחירון ברזל":
             st.error("שגיאה בשמירה לענן. ודא שהטוקן תקין.")
 
 # =============================================================================
-# 6. עמוד 2: חישוב פרויקט (מחשבון חיתוך ותמחור סופי + שדות לקוח למעלה)
+# 6. עמוד 2: חישוב פרויקט (מחשבון חיתוך, תמחור סופי וייצוא PDF)
 # =============================================================================
 elif page == "📊 חישוב פרויקט":
     st.title("📊 מחשבון פרויקטים, חיתוך אופטימלי ועלויות")
@@ -321,6 +335,7 @@ elif page == "📊 חישוב פרויקט":
         st.rerun()
 
     total_project_iron_cost = 0.0
+    pdf_materials_html = "" # צובר חומרים ותוכניות חיתוך עבור מסמך ה-PDF
     
     for g_idx, group in enumerate(st.session_state.project_groups):
         st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
@@ -335,10 +350,12 @@ elif page == "📊 חישוב פרויקט":
             st.rerun()
         
         st.markdown("##### רשימת חיתוכים נדרשים:")
+        cuts_summary_text = ""
         for c_idx, cut in enumerate(group['cuts']):
             cc1, cc2, cc3 = st.columns([3, 3, 1])
             cut['length'] = cc1.number_input("אורך מבוקש (ס\"מ):", min_value=0.1, value=float(cut['length']), key=f"l_{g_idx}_{c_idx}")
             cut['qty'] = cc2.number_input("כמות יחידות:", min_value=1, value=int(cut['qty']), key=f"q_{g_idx}_{c_idx}")
+            cuts_summary_text += f"<li>{cut['qty']} יחידות x {cut['length']} ס\"מ</li>"
             
             if cc3.button("❌", key=f"dc_{g_idx}_{c_idx}"): 
                 group['cuts'].pop(c_idx)
@@ -362,6 +379,18 @@ elif page == "📊 חישוב פרויקט":
             st.markdown(f"**💡 נדרשים {group_bars_count} מוטות באורך {max_len} ס\"מ לקבוצה זו. עלות ברזל: ₪ {group_cost:,.2f}**")
             display_visual_bars(bars_plan, max_len)
             
+            # בניית מקטע החומר הנוכחי לתוך ה-PDF
+            bars_html_for_pdf = generate_html_bars_for_pdf(bars_plan, max_len)
+            pdf_materials_html += f"""
+            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background-color: #fafafa; border-radius: 6px;">
+                <h3 style="margin-top:0; color:#1976d2;">🛠️ חומר: {group['sel_type']} ({group['sel_dim']} | {group['sel_thk']})</h3>
+                <p><b>חיתוכים שהוזנו:</b></p>
+                <ul>{cuts_summary_text}</ul>
+                <p><b>תוכנית אופטימיזציית חיתוך (סה"כ נדרש: {group_bars_count} מוטות של {max_len} ס"מ):</b></p>
+                {bars_html_for_pdf}
+            </div>
+            """
+            
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -375,40 +404,130 @@ elif page == "📊 חישוב פרויקט":
     
     st.markdown(f"## 💰 הצעת מחיר מומלצת ללקוח (כולל רווח): ₪ {client_final_price:,.2f}")
 
+    # =============================================================================
+    # יצירת קובץ ה-PDF (ייצוא HTML להורדה ישירה כ-PDF)
+    # =============================================================================
+    html_pdf_template = f"""
+    <html dir="rtl">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 30px; line-height: 1.5; color: #333; direction: rtl; text-align: right; }}
+            .header {{ text-align: center; border-bottom: 3px solid #333; padding-bottom: 10px; margin-bottom: 30px; }}
+            .section {{ margin-bottom: 25px; }}
+            .section-title {{ background-color: #f0f2f6; padding: 8px; font-size: 16px; border-right: 5px solid #1976d2; font-weight: bold; margin-bottom: 15px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: right; }}
+            th {{ background-color: #f8f9fa; font-weight: bold; }}
+            .price-box {{ font-size: 20px; font-weight: bold; color: #2e7d32; background-color: #e8f5e9; padding: 15px; text-align: center; border: 1px solid #a5d6a7; margin-top: 20px; border-radius: 6px; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1 style="margin: 0;">Elad Cohen Iron Art ⚒️</h1>
+            <h2 style="margin: 5px 0; font-weight: normal; font-size: 18px;">סיכום פרויקט והצעת מחיר סופית</h2>
+            <p style="font-size: 12px; color: #666;">תאריך הפקה: {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">👤 פרטי פרויקט ולקוח</div>
+            <table>
+                <tr><td><b>שם פרויקט / מוצר:</b></td><td>{save_project_name if save_project_name else '-'}</td></tr>
+                <tr><td><b>שם הלקוח:</b></td><td>{client_name if client_name else '-'}</td></tr>
+                <tr><td><b>טלפון:</b></td><td>{client_phone if client_phone else '-'}</td></tr>
+                <tr><td><b>כתובת אספקה/התקנה:</b></td><td>{client_address if client_address else '-'}</td></tr>
+                <tr><td><b>תאריך פרויקט:</b></td><td>{str(project_date)}</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🧱 פירוט חומרים ותוכניות חיתוך אופטימליות</div>
+            {pdf_materials_html if pdf_materials_html else '<p>לא הוזנו חומרים לפרויקט.</p>'}
+        </div>
+
+        <div class="section">
+            <div class="section-title">📊 סיכום עלויות והוצאות נלוות</div>
+            <table>
+                <thead>
+                    <tr><th>סעיף הוצאה</th><th>עלות בש"ח (₪)</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>סה"כ חומרי גלם (ברזל)</td><td>₪ {total_project_iron_cost:,.2f}</td></tr>
+                    <tr><td>עלות עבודה עצמית (עובדים וימי עבודה)</td><td>₪ {calculated_labor_cost:,.2f}</td></tr>
+                    <tr><td>צביעה בתנור</td><td>₪ {powder_coating_cost:,.2f}</td></tr>
+                    <tr><td>חיתוך לייזר</td><td>₪ {laser_cutting_cost:,.2f}</td></tr>
+                    <tr><td>הובלה / שינוע</td><td>₪ {transportation_cost:,.2f}</td></tr>
+                    <tr><td>מנוף</td><td>₪ {crane_cost:,.2f}</td></tr>
+                    <tr><td>עבודות נגרות משולבת</td><td>₪ {carpentry_cost:,.2f}</td></tr>
+                    <tr><td>עבודות זגגות / זכוכית</td><td>₪ {glazing_cost:,.2f}</td></tr>
+                    <tr><td>הוצאות שונות אחרות</td><td>₪ {other_expenses:,.2f}</td></tr>
+                    <tr style="font-weight: bold; background-color: #f8f9fa;"><td>סה"כ עלויות נטו (עלות ייצור)</td><td>₪ {total_expenses:,.2f}</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="price-box">
+            💰 הצעת מחיר מומלצת וסופית ללקוח (מכפיל רווח {profit_multiplier}): ₪ {client_final_price:,.2f}
+        </div>
+        
+        <script>
+            // פקודה אוטומטית שגורמת לדפדפן לפתוח את חלון השמירה כ-PDF מיד עם טעינת הדף
+            window.onload = function() {{ window.print(); }}
+        </script>
+    </body>
+    </html>
+    """
+
     st.markdown("---")
-    if st.button("💾 שמור פרויקט זה לארכיון הענן", type="primary", use_container_width=True):
-        if not save_project_name:
-            st.error("אנא מלא את שדה 'שם הפרויקט / מוצר' בראש העמוד כדי שתוכל לזהות אותו בארכיון.")
-        else:
-            new_project_entry = {
-                'project_name': save_project_name,
-                'client_name': client_name,
-                'phone': client_phone,
-                'address': client_address,
-                'date': str(project_date),
-                'multiplier': profit_multiplier,
-                'labor_data': {
-                    'num_workers': num_workers,
-                    'days_of_work': days_of_work,
-                    'daily_wage': daily_wage
-                },
-                'external_expenses': {
-                    'powder': powder_coating_cost,
-                    'laser': laser_cutting_cost,
-                    'transport': transportation_cost,
-                    'crane': crane_cost,
-                    'carpentry': carpentry_cost,
-                    'glazing': glazing_cost,
-                    'other': other_expenses
-                },
-                'groups_data': st.session_state.project_groups
-            }
-            
-            st.session_state.saved_projects.append(new_project_entry)
-            if save_to_github("saved_projects.json", st.session_state.saved_projects, f"הוספת פרויקט בארכיון: {save_project_name}"):
-                st.success(f"הפרויקט '{save_project_name}' נשמר בהצלחה בארכיון הענן שלך!")
+    st.subheader("📥 ייצוא ושמירה")
+    c_btn1, c_btn2 = st.columns(2)
+    
+    with c_btn1:
+        # כפתור הורדת PDF מהיר וייחודי
+        clean_project_filename = re.sub(r'[\/*?:"<>|]', "", save_project_name) if save_project_name else "project_summary"
+        st.download_button(
+            label="📄 ייצא והורד סיכום פרויקט וחיתוכים ל-PDF",
+            data=html_pdf_template,
+            file_name=f"סיכום_פרויקט_{clean_project_filename}.html",
+            mime="text/html",
+            use_container_width=True,
+            help="לחיצה על הכפתור תוריד קובץ. פתח אותו ולחץ על Ctrl+P (או הדפסה) כדי לשמור כ-PDF מושלם ומעוצב!"
+        )
+        
+    with c_btn2:
+        if st.button("💾 שמור פרויקט זה לארכיון הענן", type="primary", use_container_width=True):
+            if not save_project_name:
+                st.error("אנא מלא את שדה 'שם הפרויקט / מוצר' בראש העמוד כדי שתוכל לזהות אותו בארכיון.")
             else:
-                st.error("תקלה בעדכון קובץ הארכיון מול השרת. ודא שהטוקן תקין.")
+                new_project_entry = {
+                    'project_name': save_project_name,
+                    'client_name': client_name,
+                    'phone': client_phone,
+                    'address': client_address,
+                    'date': str(project_date),
+                    'multiplier': profit_multiplier,
+                    'labor_data': {
+                        'num_workers': num_workers,
+                        'days_of_work': days_of_work,
+                        'daily_wage': daily_wage
+                    },
+                    'external_expenses': {
+                        'powder': powder_coating_cost,
+                        'laser': laser_cutting_cost,
+                        'transport': transportation_cost,
+                        'crane': crane_cost,
+                        'carpentry': carpentry_cost,
+                        'glazing': glazing_cost,
+                        'other': other_expenses
+                    },
+                    'groups_data': st.session_state.project_groups
+                }
+                
+                st.session_state.saved_projects.append(new_project_entry)
+                if save_to_github("saved_projects.json", st.session_state.saved_projects, f"הוספת פרויקט בארכיון: {save_project_name}"):
+                    st.success(f"הפרויקט '{save_project_name}' נשמר בהצלחה בארכיון הענן שלך!")
+                else:
+                    st.error("תקלה בעדכון קובץ הארכיון מול השרת. ודא שהטוקן תקין.")
 
 # =============================================================================
 # 7. עמוד 3: ארכיון פרויקטים (תצוגת לקוח מורחבת וחישוב חיתוך חי בארכיון)
@@ -420,7 +539,6 @@ else:
     if not st.session_state.saved_projects:
         st.info("אין פרויקטים שמורים כרגע בארכיון.")
     else:
-        # יצירת עותק ללולאה כדי למנוע קריסה בזמן מחיקה
         for p_idx, project in enumerate(list(st.session_state.saved_projects)):
             p_title = project.get('project_name', 'פרויקט ללא שם')
             c_name = project.get('client_name', '-')
@@ -469,7 +587,6 @@ else:
                 
                 st.markdown(" ")
                 if st.button("❌ מחק פרויקט זה לצמיתות", key=f"del_{p_idx}"):
-                    # סינון בטוח של הפרויקט לפי מיקום ברשימה כדי למנוע בעיות של שמות כפולים או חסרים
                     st.session_state.saved_projects.pop(p_idx)
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"מחיקת פרויקט {p_title}"):
                         st.success("הפרויקט נמחק בהצלחה מהארכיון!")
