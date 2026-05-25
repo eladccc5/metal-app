@@ -157,11 +157,38 @@ def save_to_github(filename, data_to_save, commit_message):
     except: 
         return False
 
+# -----------------------------------------------------------------------------
 # טעינת נתונים ראשונית מהענן לתוך ה-Session State
+# -----------------------------------------------------------------------------
 if 'dynamic_catalog' not in st.session_state:
     st.session_state.dynamic_catalog = fetch_from_github("saved_prices.json", get_initial_catalog)
 if 'saved_projects' not in st.session_state:
     st.session_state.saved_projects = fetch_from_github("saved_projects.json", list)
+
+# ניהול ניווט אקטיבי בין עמודים (בשביל לאפשר טעינה אוטומטית לעמוד המחשבון)
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "📊 חישוב פרויקט"
+
+# משתני ברירת מחדל לשדות הלקוח בראש עמוד החישוב
+if 'input_project_name' not in st.session_state: st.session_state.input_project_name = ""
+if 'input_client_name' not in st.session_state: st.session_state.input_client_name = ""
+if 'input_client_phone' not in st.session_state: st.session_state.input_client_phone = ""
+if 'input_client_address' not in st.session_state: st.session_state.input_client_address = ""
+if 'input_project_date' not in st.session_state: st.session_state.input_project_date = datetime.now().date()
+
+# משתני ברירת מחדל עבור ה-Sidebar
+if 'input_num_workers' not in st.session_state: st.session_state.input_num_workers = 1
+if 'input_days_of_work' not in st.session_state: st.session_state.input_days_of_work = 1
+if 'input_daily_wage' not in st.session_state: st.session_state.input_daily_wage = 0.0
+if 'input_powder' not in st.session_state: st.session_state.input_powder = 0.0
+if 'input_laser' not in st.session_state: st.session_state.input_laser = 0.0
+if 'input_transport' not in st.session_state: st.session_state.input_transport = 0.0
+if 'input_crane' not in st.session_state: st.session_state.input_crane = 0.0
+if 'input_carpentry' not in st.session_state: st.session_state.input_carpentry = 0.0
+if 'input_glazing' not in st.session_state: st.session_state.input_glazing = 0.0
+if 'input_other' not in st.session_state: st.session_state.input_other = 0.0
+if 'input_multiplier' not in st.session_state: st.session_state.input_multiplier = 1.5
+
 if 'project_groups' not in st.session_state:
     first_type = list(st.session_state.dynamic_catalog.keys())[0]
     st.session_state.project_groups = [{
@@ -204,7 +231,6 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
             
     return bars, None
 
-# פונקציית עזר להצגה גרפית של המוטות (הכחולים/אדומים)
 def display_visual_bars(bars_plan, max_bar_len):
     for b_id, bar_cuts in enumerate(bars_plan):
         used_space = sum(bar_cuts)
@@ -222,7 +248,6 @@ def display_visual_bars(bars_plan, max_bar_len):
         
         st.markdown(bar_html, unsafe_allow_html=True)
 
-# פונקציית עזר ליצירת קוד ה-HTML של הברזלים עבור ה-PDF
 def generate_html_bars_for_pdf(bars_plan, max_bar_len):
     html_str = ""
     for b_id, bar_cuts in enumerate(bars_plan):
@@ -239,31 +264,118 @@ def generate_html_bars_for_pdf(bars_plan, max_bar_len):
         html_str += "</div>"
     return html_str
 
+# פונקציה גלובלית שמייצרת את קוד ה-HTML של ה-PDF (משותפת למחשבון ולארכיון)
+def build_pdf_html_content(p_name, c_name, phone, addr, p_date, mult, iron_cost, ext_list, total_net, final_price, materials_html):
+    return f"""
+    <html dir="rtl">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 30px; line-height: 1.5; color: #333; direction: rtl; text-align: right; }}
+            .header {{ text-align: center; border-bottom: 3px solid #333; padding-bottom: 10px; margin-bottom: 30px; }}
+            .section {{ margin-bottom: 25px; }}
+            .section-title {{ background-color: #f0f2f6; padding: 8px; font-size: 16px; border-right: 5px solid #1976d2; font-weight: bold; margin-bottom: 15px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: right; }}
+            th {{ background-color: #f8f9fa; font-weight: bold; }}
+            .price-box {{ font-size: 20px; font-weight: bold; color: #2e7d32; background-color: #e8f5e9; padding: 15px; text-align: center; border: 1px solid #a5d6a7; margin-top: 20px; border-radius: 6px; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1 style="margin: 0;">Elad Cohen Iron Art ⚒️</h1>
+            <h2 style="margin: 5px 0; font-weight: normal; font-size: 18px;">סיכום פרויקט והצעת מחיר סופית</h2>
+            <p style="font-size: 12px; color: #666;">תאריך הפקה: {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+        </div>
+        <div class="section">
+            <div class="section-title">👤 פרטי פרויקט ולקוח</div>
+            <table>
+                <tr><td><b>שם פרויקט / מוצר:</b></td><td>{p_name if p_name else '-'}</td></tr>
+                <tr><td><b>שם הלקוח:</b></td><td>{c_name if c_name else '-'}</td></tr>
+                <tr><td><b>טלפון:</b></td><td>{phone if phone else '-'}</td></tr>
+                <tr><td><b>כתובת אספקה/התקנה:</b></td><td>{addr if addr else '-'}</td></tr>
+                <tr><td><b>תאריך פרויקט:</b></td><td>{str(p_date)}</td></tr>
+            </table>
+        </div>
+        <div class="section">
+            <div class="section-title">🧱 פירוט חומרים ותוכניות חיתוך אופטימליות</div>
+            {materials_html if materials_html else '<p>לא הוזנו חומרים לפרויקט.</p>'}
+        </div>
+        <div class="section">
+            <div class="section-title">📊 סיכום עלויות והוצאות נלוות</div>
+            <table>
+                <thead>
+                    <tr><th>סעיף הוצאה</th><th>עלות בש"ח (₪)</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>סה"כ חומרי גלם (ברזל)</td><td>₪ {iron_cost:,.2f}</td></tr>
+                    <tr><td>עלות עבודה עצמית (עובדים וימי עבודה)</td><td>₪ {ext_list.get('labor', 0.0):,.2f}</td></tr>
+                    <tr><td>צביעה בתנור</td><td>₪ {ext_list.get('powder', 0.0):,.2f}</td></tr>
+                    <tr><td>חיתוך לייזר</td><td>₪ {ext_list.get('laser', 0.0):,.2f}</td></tr>
+                    <tr><td>הובלה / שינוע</td><td>₪ {ext_list.get('transport', 0.0):,.2f}</td></tr>
+                    <tr><td>מנוף</td><td>₪ {ext_list.get('crane', 0.0):,.2f}</td></tr>
+                    <tr><td>עבודות נגרות משולבת</td><td>₪ {ext_list.get('carpentry', 0.0):,.2f}</td></tr>
+                    <tr><td>עבודות זגגות / זכוכית</td><td>₪ {ext_list.get('glazing', 0.0):,.2f}</td></tr>
+                    <tr><td>הוצאות שונות אחרות</td><td>₪ {ext_list.get('other', 0.0):,.2f}</td></tr>
+                    <tr style="font-weight: bold; background-color: #f8f9fa;"><td>סה"כ עלויות נטו (עלות ייצור)</td><td>₪ {total_net:,.2f}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="price-box">
+            💰 הצעת מחיר מומלצת וסופית ללקוח (מכפיל רווח {mult}): ₪ {final_price:,.2f}
+        </div>
+        <script>window.onload = function() {{ window.print(); }}</script>
+    </body>
+    </html>
+    """
+
 # =============================================================================
-# 4. תפריט צדדי (Sidebar) - עלויות ומכפילים בלבד
+# 4. תפריט צדדי (Sidebar) - סנכרון עם ה-Session State
 # =============================================================================
 st.sidebar.title("🛠️ Elad Cohen Iron Art")
-page = st.sidebar.radio("ניווט בין עמודים:", ["💰 מחירון ברזל", "📊 חישוב פרויקט", "📂 ארכיון פרויקטים"])
+
+# שימוש בניווט מנוהל Session State
+page_options = ["💰 מחירון ברזל", "📊 חישוב פרויקט", "📂 ארכיון פרויקטים"]
+sidebar_page = st.sidebar.radio(
+    "ניווט בין עמודים:", 
+    page_options, 
+    index=page_options.index(st.session_state.current_page),
+    key="sidebar_navigation"
+)
+st.session_state.current_page = sidebar_page
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("👷 עלויות עבודה עצמית")
-num_workers = st.sidebar.number_input("כמות עובדים:", min_value=0, value=1, step=1)
-days_of_work = st.sidebar.number_input("ימי עבודה:", min_value=0, value=1, step=1)
-daily_wage = st.sidebar.number_input("עלות יומית לעובד (₪):", min_value=0.0, value=0.0, step=50.0)
+num_workers = st.sidebar.number_input("כמות עובדים:", min_value=0, value=int(st.session_state.input_num_workers), step=1, key="num_workers_widget")
+days_of_work = st.sidebar.number_input("ימי עבודה:", min_value=0, value=int(st.session_state.input_days_of_work), step=1, key="days_of_work_widget")
+daily_wage = st.sidebar.number_input("עלות יומית לעובד (₪):", min_value=0.0, value=float(st.session_state.input_daily_wage), step=50.0, key="daily_wage_widget")
+
+st.session_state.input_num_workers = num_workers
+st.session_state.input_days_of_work = days_of_work
+st.session_state.input_daily_wage = daily_wage
 calculated_labor_cost = num_workers * days_of_work * daily_wage
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🚚 הוצאות נלוות וקבלני משנה")
-powder_coating_cost = st.sidebar.number_input("צביעה בתנור (₪):", min_value=0.0, value=0.0, step=50.0)
-laser_cutting_cost = st.sidebar.number_input("חיתוך לייזר (₪):", min_value=0.0, value=0.0, step=50.0)
-transportation_cost = st.sidebar.number_input("הובלה / שינוע (₪):", min_value=0.0, value=0.0, step=50.0)
-crane_cost = st.sidebar.number_input("מנוף (₪):", min_value=0.0, value=0.0, step=50.0)
-carpentry_cost = st.sidebar.number_input("עבודות נגרות משולבת (₪):", min_value=0.0, value=0.0, step=50.0)
-glazing_cost = st.sidebar.number_input("עבודות זגגות / זכוכית (₪):", min_value=0.0, value=0.0, step=50.0)
-other_expenses = st.sidebar.number_input("הוצאות שונות אחרות (₪):", min_value=0.0, value=0.0, step=50.0)
+powder_coating_cost = st.sidebar.number_input("צביעה בתנור (₪):", min_value=0.0, value=float(st.session_state.input_powder), step=50.0, key="powder_widget")
+laser_cutting_cost = st.sidebar.number_input("חיתוך לייזר (₪):", min_value=0.0, value=float(st.session_state.input_laser), step=50.0, key="laser_widget")
+transportation_cost = st.sidebar.number_input("הובלה / שינוע (₪):", min_value=0.0, value=float(st.session_state.input_transport), step=50.0, key="transport_widget")
+crane_cost = st.sidebar.number_input("מנוף (₪):", min_value=0.0, value=float(st.session_state.input_crane), step=50.0, key="crane_widget")
+carpentry_cost = st.sidebar.number_input("עבודות נגרות משולבת (₪):", min_value=0.0, value=float(st.session_state.input_carpentry), step=50.0, key="carpentry_widget")
+glazing_cost = st.sidebar.number_input("עבודות זגגות / זכוכית (₪):", min_value=0.0, value=float(st.session_state.input_glazing), step=50.0, key="glazing_widget")
+other_expenses = st.sidebar.number_input("הוצאות שונות אחרות (₪):", min_value=0.0, value=float(st.session_state.input_other), step=50.0, key="other_widget")
+
+st.session_state.input_powder = powder_coating_cost
+st.session_state.input_laser = laser_cutting_cost
+st.session_state.input_transport = transportation_cost
+st.session_state.input_crane = crane_cost
+st.session_state.input_carpentry = carpentry_cost
+st.session_state.input_glazing = glazing_cost
+st.session_state.input_other = other_expenses
 
 st.sidebar.markdown("---")
-profit_multiplier = st.sidebar.slider("מכפיל רווח גלובלי:", 1.0, 4.0, 1.5, 0.1)
+profit_multiplier = st.sidebar.slider("מכפיל רווח גלובלי:", 1.0, 4.0, float(st.session_state.input_multiplier), 0.1, key="multiplier_widget")
+st.session_state.input_multiplier = profit_multiplier
 
 total_external_expenses = (calculated_labor_cost + powder_coating_cost + laser_cutting_cost + 
                            transportation_cost + crane_cost + carpentry_cost + glazing_cost + other_expenses)
@@ -271,7 +383,7 @@ total_external_expenses = (calculated_labor_cost + powder_coating_cost + laser_c
 # =============================================================================
 # 5. עמוד 1: מחירון ברזל (ניהול ועדכון קטלוג)
 # =============================================================================
-if page == "💰 מחירון ברזל":
+if st.session_state.current_page == "💰 מחירון ברזל":
     st.title("📋 קטלוג ומחירון ברזל דינמי")
     st.write("עדכן את מחירי המוטות בטבלאות שלהלן, ולאחר מכן לחץ על כפתור השמירה לענן.")
     
@@ -308,20 +420,32 @@ if page == "💰 מחירון ברזל":
 # =============================================================================
 # 6. עמוד 2: חישוב פרויקט (מחשבון חיתוך, תמחור סופי וייצוא PDF)
 # =============================================================================
-elif page == "📊 חישוב פרויקט":
+elif st.session_state.current_page == "📊 חישוב פרויקט":
     st.title("📊 מחשבון פרויקטים, חיתוך אופטימלי ועלויות")
     
     st.markdown("<div class='top-project-box'>", unsafe_allow_html=True)
     st.subheader("👤 פרטי הפרויקט והלקוח הנוכחי")
     
     row1_c1, row1_c2, row1_c3 = st.columns(3)
-    save_project_name = row1_c1.text_input("שם הפרויקט / מוצר (למשל: סורג ליוסי):", value="")
-    client_name = row1_c2.text_input("שם הלקוח:")
-    client_phone = row1_c3.text_input("מספר טלפון:")
+    save_project_name = row1_c1.text_input("שם הפרויקט / מוצר (למשל: סורג ליוסי):", value=st.session_state.input_project_name)
+    client_name = row1_c2.text_input("שם הלקוח:", value=st.session_state.input_client_name)
+    client_phone = row1_c3.text_input("מספר טלפון:", value=st.session_state.input_client_phone)
     
     row2_c1, row2_c2 = st.columns([2, 1])
-    client_address = row2_c1.text_input("כתובת הפרויקט (רחוב ועיר):")
-    project_date = row2_c2.date_input("תאריך פרויקט:", datetime.now())
+    client_address = row2_c1.text_input("כתובת הפרויקט (רחוב ועיר):", value=st.session_state.input_client_address)
+    
+    # בדיקת סוג התאריך (לוודא שהוא אובייקט תאריך תקין)
+    d_val = st.session_state.input_project_date
+    if isinstance(d_val, str):
+        try: d_val = datetime.strptime(d_val, "%Y-%m-%d").date()
+        except: d_val = datetime.now().date()
+    project_date = row2_c2.date_input("תאריך פרויקט:", value=d_val)
+    
+    st.session_state.input_project_name = save_project_name
+    st.session_state.input_client_name = client_name
+    st.session_state.input_client_phone = client_phone
+    st.session_state.input_client_address = client_address
+    st.session_state.input_project_date = project_date
     st.markdown("</div>", unsafe_allow_html=True)
 
     if st.button("➕ הוסף קבוצת חומר חדשה לפרויקט", use_container_width=True):
@@ -335,15 +459,28 @@ elif page == "📊 חישוב פרויקט":
         st.rerun()
 
     total_project_iron_cost = 0.0
-    pdf_materials_html = "" # צובר חומרים ותוכניות חיתוך עבור מסמך ה-PDF
+    pdf_materials_html = ""
     
     for g_idx, group in enumerate(st.session_state.project_groups):
         st.markdown(f"<div class='material-block'>", unsafe_allow_html=True)
         
         c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
-        group['sel_type'] = c1.selectbox("סוג החומר:", list(st.session_state.dynamic_catalog.keys()), key=f"t_{g_idx}")
-        group['sel_dim'] = c2.selectbox("מידת הפרופיל/מוט:", st.session_state.dynamic_catalog[group['sel_type']]["dimensions"], key=f"d_{g_idx}")
-        group['sel_thk'] = c3.selectbox("עובי דופן / סוג:", st.session_state.dynamic_catalog[group['sel_type']]["thicknesses"], key=f"th_{g_idx}")
+        
+        # מניעת קריסה אם חומרים ישנים נטענו ולא תואמים לקטלוג הנוכחי
+        cat_keys = list(st.session_state.dynamic_catalog.keys())
+        t_idx = cat_keys.index(group['sel_type']) if group['sel_type'] in cat_keys else 0
+        g_type = c1.selectbox("סוג החומר:", cat_keys, index=t_idx, key=f"t_{g_idx}")
+        group['sel_type'] = g_type
+        
+        dims = st.session_state.dynamic_catalog[g_type]["dimensions"]
+        d_idx = dims.index(group['sel_dim']) if group['sel_dim'] in dims else 0
+        g_dim = c2.selectbox("מידת הפרופיל/מוט:", dims, index=d_idx, key=f"d_{g_idx}")
+        group['sel_dim'] = g_dim
+        
+        thks = st.session_state.dynamic_catalog[g_type]["thicknesses"]
+        th_idx = thks.index(group['sel_thk']) if group['sel_thk'] in thks else 0
+        g_thk = c3.selectbox("עובי דופן / סוג:", thks, index=th_idx, key=f"th_{g_idx}")
+        group['sel_thk'] = g_thk
         
         if c4.button("🗑️ מחק קבוצה", key=f"dg_{g_idx}"): 
             st.session_state.project_groups.pop(g_idx)
@@ -379,7 +516,6 @@ elif page == "📊 חישוב פרויקט":
             st.markdown(f"**💡 נדרשים {group_bars_count} מוטות באורך {max_len} ס\"מ לקבוצה זו. עלות ברזל: ₪ {group_cost:,.2f}**")
             display_visual_bars(bars_plan, max_len)
             
-            # בניית מקטע החומר הנוכחי לתוך ה-PDF
             bars_html_for_pdf = generate_html_bars_for_pdf(bars_plan, max_len)
             pdf_materials_html += f"""
             <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background-color: #fafafa; border-radius: 6px;">
@@ -404,86 +540,23 @@ elif page == "📊 חישוב פרויקט":
     
     st.markdown(f"## 💰 הצעת מחיר מומלצת ללקוח (כולל רווח): ₪ {client_final_price:,.2f}")
 
-    # =============================================================================
-    # יצירת קובץ ה-PDF (ייצוא HTML להורדה ישירה כ-PDF)
-    # =============================================================================
-    html_pdf_template = f"""
-    <html dir="rtl">
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 30px; line-height: 1.5; color: #333; direction: rtl; text-align: right; }}
-            .header {{ text-align: center; border-bottom: 3px solid #333; padding-bottom: 10px; margin-bottom: 30px; }}
-            .section {{ margin-bottom: 25px; }}
-            .section-title {{ background-color: #f0f2f6; padding: 8px; font-size: 16px; border-right: 5px solid #1976d2; font-weight: bold; margin-bottom: 15px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: right; }}
-            th {{ background-color: #f8f9fa; font-weight: bold; }}
-            .price-box {{ font-size: 20px; font-weight: bold; color: #2e7d32; background-color: #e8f5e9; padding: 15px; text-align: center; border: 1px solid #a5d6a7; margin-top: 20px; border-radius: 6px; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1 style="margin: 0;">Elad Cohen Iron Art ⚒️</h1>
-            <h2 style="margin: 5px 0; font-weight: normal; font-size: 18px;">סיכום פרויקט והצעת מחיר סופית</h2>
-            <p style="font-size: 12px; color: #666;">תאריך הפקה: {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
-        </div>
-
-        <div class="section">
-            <div class="section-title">👤 פרטי פרויקט ולקוח</div>
-            <table>
-                <tr><td><b>שם פרויקט / מוצר:</b></td><td>{save_project_name if save_project_name else '-'}</td></tr>
-                <tr><td><b>שם הלקוח:</b></td><td>{client_name if client_name else '-'}</td></tr>
-                <tr><td><b>טלפון:</b></td><td>{client_phone if client_phone else '-'}</td></tr>
-                <tr><td><b>כתובת אספקה/התקנה:</b></td><td>{client_address if client_address else '-'}</td></tr>
-                <tr><td><b>תאריך פרויקט:</b></td><td>{str(project_date)}</td></tr>
-            </table>
-        </div>
-
-        <div class="section">
-            <div class="section-title">🧱 פירוט חומרים ותוכניות חיתוך אופטימליות</div>
-            {pdf_materials_html if pdf_materials_html else '<p>לא הוזנו חומרים לפרויקט.</p>'}
-        </div>
-
-        <div class="section">
-            <div class="section-title">📊 סיכום עלויות והוצאות נלוות</div>
-            <table>
-                <thead>
-                    <tr><th>סעיף הוצאה</th><th>עלות בש"ח (₪)</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>סה"כ חומרי גלם (ברזל)</td><td>₪ {total_project_iron_cost:,.2f}</td></tr>
-                    <tr><td>עלות עבודה עצמית (עובדים וימי עבודה)</td><td>₪ {calculated_labor_cost:,.2f}</td></tr>
-                    <tr><td>צביעה בתנור</td><td>₪ {powder_coating_cost:,.2f}</td></tr>
-                    <tr><td>חיתוך לייזר</td><td>₪ {laser_cutting_cost:,.2f}</td></tr>
-                    <tr><td>הובלה / שינוע</td><td>₪ {transportation_cost:,.2f}</td></tr>
-                    <tr><td>מנוף</td><td>₪ {crane_cost:,.2f}</td></tr>
-                    <tr><td>עבודות נגרות משולבת</td><td>₪ {carpentry_cost:,.2f}</td></tr>
-                    <tr><td>עבודות זגגות / זכוכית</td><td>₪ {glazing_cost:,.2f}</td></tr>
-                    <tr><td>הוצאות שונות אחרות</td><td>₪ {other_expenses:,.2f}</td></tr>
-                    <tr style="font-weight: bold; background-color: #f8f9fa;"><td>סה"כ עלויות נטו (עלות ייצור)</td><td>₪ {total_expenses:,.2f}</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="price-box">
-            💰 הצעת מחיר מומלצת וסופית ללקוח (מכפיל רווח {profit_multiplier}): ₪ {client_final_price:,.2f}
-        </div>
-        
-        <script>
-            // פקודה אוטומטית שגורמת לדפדפן לפתוח את חלון השמירה כ-PDF מיד עם טעינת הדף
-            window.onload = function() {{ window.print(); }}
-        </script>
-    </body>
-    </html>
-    """
+    # הכנת רשימת ההוצאות לקובץ ה-PDF
+    ext_expenses_dict_for_pdf = {
+        'labor': calculated_labor_cost, 'powder': powder_coating_cost, 'laser': laser_cutting_cost,
+        'transport': transportation_cost, 'crane': crane_cost, 'carpentry': carpentry_cost,
+        'glazing': glazing_cost, 'other': other_expenses
+    }
+    html_pdf_template = build_pdf_html_content(
+        save_project_name, client_name, client_phone, client_address, project_date,
+        profit_multiplier, total_project_iron_cost, ext_expenses_dict_for_pdf,
+        total_expenses, client_final_price, pdf_materials_html
+    )
 
     st.markdown("---")
     st.subheader("📥 ייצוא ושמירה")
     c_btn1, c_btn2 = st.columns(2)
     
     with c_btn1:
-        # כפתור הורדת PDF מהיר וייחודי
         clean_project_filename = re.sub(r'[\/*?:"<>|]', "", save_project_name) if save_project_name else "project_summary"
         st.download_button(
             label="📄 ייצא והורד סיכום פרויקט וחיתוכים ל-PDF",
@@ -491,7 +564,7 @@ elif page == "📊 חישוב פרויקט":
             file_name=f"סיכום_פרויקט_{clean_project_filename}.html",
             mime="text/html",
             use_container_width=True,
-            help="לחיצה על הכפתור תוריד קובץ. פתח אותו ולחץ על Ctrl+P (או הדפסה) כדי לשמור כ-PDF מושלם ומעוצב!"
+            help="לחיצה תוריד קובץ. פתח אותו ולחץ במקלדת Ctrl+P כדי לשמור כ-PDF נקי."
         )
         
     with c_btn2:
@@ -523,18 +596,31 @@ elif page == "📊 חישוב פרויקט":
                     'groups_data': st.session_state.project_groups
                 }
                 
-                st.session_state.saved_projects.append(new_project_entry)
-                if save_to_github("saved_projects.json", st.session_state.saved_projects, f"הוספת פרויקט בארכיון: {save_project_name}"):
-                    st.success(f"הפרויקט '{save_project_name}' נשמר בהצלחה בארכיון הענן שלך!")
+                # בדיקה אם פרויקט בשם זה כבר קיים בארכיון - אם כן נעדכן אותו במקום להכפיל
+                existing_idx = -1
+                for idx, p in enumerate(st.session_state.saved_projects):
+                    if p.get('project_name') == save_project_name:
+                        existing_idx = idx
+                        break
+                
+                if existing_idx != -1:
+                    st.session_state.saved_projects[existing_idx] = new_project_entry
+                    msg = f"הפרויקט הקיים '{save_project_name}' עודכן בהצלחה בענן!"
                 else:
-                    st.error("תקלה בעדכון קובץ הארכיון מול השרת. ודא שהטוקן תקין.")
+                    st.session_state.saved_projects.append(new_project_entry)
+                    msg = f"הפרויקט החדש '{save_project_name}' נשמר בהצלחה בארכיון הענן!"
+                
+                if save_to_github("saved_projects.json", st.session_state.saved_projects, f"שמירה/עדכון פרויקט: {save_project_name}"):
+                    st.success(msg)
+                else:
+                    st.error("תקלה בעדכון קובץ הארכיון מול השרת.")
 
 # =============================================================================
-# 7. עמוד 3: ארכיון פרויקטים (תצוגת לקוח מורחבת וחישוב חיתוך חי בארכיון)
+# 7. עמוד 3: ארכיון פרויקטים (טעינה לעריכה + הפקת PDF ישירה)
 # =============================================================================
 else:
     st.title("📂 ארכיון פרויקטים שמורים")
-    st.write("כאן מופיעים כל הפרויקטים ששמרת בענן. לחיצה על פרויקט תציג מיד את כרטיס הלקוח, המידות ותוכנית החיתוך המלאה.")
+    st.write("כאן מופיעים כל הפרויקטים ששמרת בענן. באפשרותך להפיק PDF ישירות, או לטעון את הפרויקט חזרה למחשבון לצורך שינויים ועריכה.")
     
     if not st.session_state.saved_projects:
         st.info("אין פרויקטים שמורים כרגע בארכיון.")
@@ -545,6 +631,40 @@ else:
             p_date = project.get('date', '-')
             
             with st.expander(f"📁 פרויקט: {p_title} | לקוח: {c_name} | תאריך: {p_date}"):
+                
+                # כפתורי פעולה מהירים לפרויקט
+                col_actions1, col_actions2, col_actions3 = st.columns(3)
+                
+                # פונקציונליות 1: טעינת פרויקט לעמוד החישוב הראשי לעריכה
+                if col_actions1.button("🔄 טען פרויקט זה לעמוד החישוב (עריכה)", key=f"load_{p_idx}", use_container_width=True):
+                    # הזרקת הנתונים למשתני ה-Session State של המחשבון
+                    st.session_state.input_project_name = project.get('project_name', '')
+                    st.session_state.input_client_name = project.get('client_name', '')
+                    st.session_state.input_client_phone = project.get('phone', '')
+                    st.session_state.input_client_address = project.get('address', '')
+                    st.session_state.input_project_date = project.get('date', str(datetime.now().date()))
+                    
+                    lab = project.get('labor_data', {})
+                    st.session_state.input_num_workers = lab.get('num_workers', 1)
+                    st.session_state.input_days_of_work = lab.get('days_of_work', 1)
+                    st.session_state.input_daily_wage = lab.get('daily_wage', 0.0)
+                    
+                    ext = project.get('external_expenses', {})
+                    st.session_state.input_powder = ext.get('powder', 0.0) if isinstance(ext, dict) else 0.0
+                    st.session_state.input_laser = ext.get('laser', 0.0) if isinstance(ext, dict) else 0.0
+                    st.session_state.input_transport = ext.get('transport', 0.0) if isinstance(ext, dict) else 0.0
+                    st.session_state.input_crane = ext.get('crane', 0.0) if isinstance(ext, dict) else 0.0
+                    st.session_state.input_carpentry = ext.get('carpentry', 0.0) if isinstance(ext, dict) else 0.0
+                    st.session_state.input_glazing = ext.get('glazing', 0.0) if isinstance(ext, dict) else 0.0
+                    st.session_state.input_other = ext.get('other', 0.0) if isinstance(ext, dict) else 0.0
+                    
+                    st.session_state.input_multiplier = project.get('multiplier', 1.5)
+                    st.session_state.project_groups = project.get('groups_data', [])
+                    
+                    # שינוי העמוד אקטיבית ורענון המערכת
+                    st.session_state.current_page = "📊 חישוב פרויקט"
+                    st.rerun()
+
                 st.markdown(f"""
                 <div class='customer-info-box'>
                 👤 <b>שם הלקוח:</b> {project.get('client_name','-')} | 📞 <b>מספר טלפון:</b> {project.get('phone','-')} <br>
@@ -554,6 +674,7 @@ else:
                 
                 st.subheader("🧱 פקודת חיתוך וחומרים (מחושב חי לפרויקט זה):")
                 archived_iron_cost = 0.0
+                pdf_archive_materials_html = ""
                 
                 for group in project.get('groups_data', []):
                     st.markdown(f"🔹 **סוג חומר:** {group['sel_type']} | **מידה:** {group['sel_dim']} | **עובי דופן:** {group['sel_thk']}")
@@ -563,9 +684,22 @@ else:
                     
                     bars_plan, err = calculate_optimal_cutting(group['cuts'], max_len)
                     if not err:
-                        group_cost = len(bars_plan) * single_price
+                        group_bars_count = len(bars_plan)
+                        group_cost = group_bars_count * single_price
                         archived_iron_cost += group_cost
                         display_visual_bars(bars_plan, max_len)
+                        
+                        # בניית סיכום החיתוכים לרשימה ב-PDF
+                        archive_cuts_text = "".join([f"<li>{c['qty']} יחידות x {c['length']} ס\"מ</li>" for c in group['cuts']])
+                        bars_html_archive_pdf = generate_html_bars_for_pdf(bars_plan, max_len)
+                        pdf_archive_materials_html += f"""
+                        <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background-color: #fafafa; border-radius: 6px;">
+                            <h3 style="margin-top:0; color:#1976d2;">🛠️ חומר: {group['sel_type']} ({group['sel_dim']} | {group['sel_thk']})</h3>
+                            <p><b>חיתוכים:</b></p>
+                            <ul>{archive_cuts_text}</ul>
+                            {bars_html_archive_pdf}
+                        </div>
+                        """
                     else:
                         st.error(f"שגיאה בחישוב חיתוך לחלק מקבוצות החומר: {err}")
                 
@@ -585,8 +719,37 @@ else:
                 c2.metric("הוצאות ועבודה נלווים", f"₪ {ext_total:,.2f}")
                 c3.metric("הצעת מחיר סופית ללקוח", f"₪ {final_quote_archived:,.2f}")
                 
-                st.markdown(" ")
-                if st.button("❌ מחק פרויקט זה לצמיתות", key=f"del_{p_idx}"):
+                # הכנת קוד PDF ישיר מהארכיון
+                archive_ext_pdf_dict = {
+                    'labor': lab_total,
+                    'powder': ext.get('powder', 0.0) if isinstance(ext, dict) else 0.0,
+                    'laser': ext.get('laser', 0.0) if isinstance(ext, dict) else 0.0,
+                    'transport': ext.get('transport', 0.0) if isinstance(ext, dict) else 0.0,
+                    'crane': ext.get('crane', 0.0) if isinstance(ext, dict) else 0.0,
+                    'carpentry': ext.get('carpentry', 0.0) if isinstance(ext, dict) else 0.0,
+                    'glazing': ext.get('glazing', 0.0) if isinstance(ext, dict) else 0.0,
+                    'other': ext.get('other', 0.0) if isinstance(ext, dict) else 0.0
+                }
+                archive_html_pdf_template = build_pdf_html_content(
+                    p_title, project.get('client_name','-'), project.get('phone','-'), 
+                    project.get('address','-'), project.get('date','-'), project.get('multiplier', 1.5),
+                    archived_iron_cost, archive_ext_pdf_dict, total_archived_expenses, final_quote_archived,
+                    pdf_archive_materials_html
+                )
+                
+                # פונקציונליות 2: כפתור הורדת PDF ישירות מתוך הארכיון
+                clean_archive_filename = re.sub(r'[\/*?:"<>|]', "", p_title)
+                col_actions2.download_button(
+                    label="📄 הורד מסמך PDF מהארכיון",
+                    data=archive_html_pdf_template,
+                    file_name=f"ארכיון_פרויקט_{clean_archive_filename}.html",
+                    mime="text/html",
+                    key=f"pdf_arch_{p_idx}",
+                    use_container_width=True
+                )
+                
+                # פונקציונליות 3: מחיקת פרויקט מהארכיון
+                if col_actions3.button("❌ מחק פרויקט לצמיתות", key=f"del_{p_idx}", use_container_width=True):
                     st.session_state.saved_projects.pop(p_idx)
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"מחיקת פרויקט {p_title}"):
                         st.success("הפרויקט נמחק בהצלחה מהארכיון!")
