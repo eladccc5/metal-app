@@ -347,7 +347,7 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
             total_project_iron_cost += group_iron_cost
             
             st.markdown(f"<div style='margin-top:15px;'>", unsafe_allow_html=True)
-            st.success(f"📊 **תוצאת אופטימיזציה:** נדרשים **{num_bars_needed}** מוטות מלאים. עלות الברזל לקבוצה זו: **₪ {group_iron_cost:,.2f}**")
+            st.success(f"📊 **תוצאת אופטימיזציה:** נדרשים **{num_bars_needed}** מוטות מלאים. עלות הברזל לקבוצה זו: **₪ {group_iron_cost:,.2f}**")
             
             for b_id, bar_cuts in enumerate(bars_plan):
                 used_space = sum(bar_cuts)
@@ -370,7 +370,6 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
         st.markdown("---")
         st.header("🔍 פירוט עלויות הפרויקט (נטו)")
         
-        # תצוגת פירוט ההוצאות לנוחות המשתמש
         col_exp1, col_exp2, col_exp3 = st.columns(3)
         with col_exp1:
             st.markdown(f"<div class='expense-box'>🧱 **ברזל וחומרי גלם:** ₪ {total_project_iron_cost:,.2f}</div>", unsafe_allow_html=True)
@@ -385,7 +384,6 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
             st.markdown(f"<div class='expense-box'>🔮 **זגגות / זכוכית:** ₪ {glazing_cost:,.2f}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='expense-box'>📦 **הוצאות שונות:** ₪ {other_expenses:,.2f}</div>", unsafe_allow_html=True)
 
-        # סך ההוצאות הסופי
         total_project_expenses = total_project_iron_cost + total_external_expenses
         recommended_client_price = total_project_expenses * profit_multiplier
         net_project_profit = recommended_client_price - total_project_expenses
@@ -427,7 +425,6 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
                     'groups_data': st.session_state.project_groups
                 }
                 
-                # מניעת קריסה: סינון מוגן שתומך גם בפרויקטים ישנים ללא שדה 'project_name'
                 cleaned_saved_projects = []
                 for p in st.session_state.saved_projects:
                     if isinstance(p, dict) and p.get('project_name') == p_name_to_save:
@@ -441,7 +438,7 @@ elif page == "📊 חישוב פרויקט ושרטוטים":
                     if save_to_github("saved_projects.json", st.session_state.saved_projects, f"📂 שמירת פרויקט מפורט: {p_name_to_save}"):
                         st.success(f"🎉 הפרויקט '{p_name_to_save}' נשמר בהצלחה עם כל פירוט ההוצאות!")
                     else:
-                        st.error("תקלה בשמירה מול השרת. ודא שההרשאות ב-Token והחיבור ב-Secrets תקינים.")
+                        st.error("תקלה בתקשורת עם GitHub. ודא שההרשאות ב-Token והחיבור ב-Secrets תקינים.")
             else:
                 st.error("אנא הכנס שם לפרויקט לפני השמירה.")
 
@@ -456,7 +453,6 @@ else:
         st.info("הארכיון ריק כרגע או שלא נשמרו פרויקטים בענן.")
     else:
         for p_idx, project in enumerate(st.session_state.saved_projects):
-            # הגנה למקרה שיש פרויקט ישן הרוס בקובץ
             if not isinstance(project, dict):
                 continue
             
@@ -466,14 +462,12 @@ else:
                 col_p1, col_p2 = st.columns(2)
                 col_p1.markdown(f"**מכפיל רווח שהוגדר:** {project.get('multiplier', 1.5)}")
                 
-                # תצוגת נתוני עבודה אם קיימים
                 l_data = project.get('labor_data', {})
                 if l_data:
                     col_p2.markdown(f"**עלות עבודה:** ₪ {l_data.get('calculated_labor_cost', 0.0):,.2f} ({l_data.get('num_workers', 1)} עובדים × {l_data.get('days_of_work', 1)} ימים)")
                 else:
                     col_p2.markdown(f"**עלות עבודה (פורמט ישן):** ₪ {project.get('labor_cost', 0.0):,.2f}")
                 
-                # הצגת עלויות נלוות
                 ext = project.get('external_expenses', {})
                 if ext:
                     st.markdown("##### 🚚 הוצאות וספקי חוץ:")
@@ -512,4 +506,4 @@ else:
                                 st.success("הפרויקט נמחק בהצלחה מהענן!")
                                 st.rerun()
                             else:
-                                .error("תקלה בעדכון המחיקה מול השרת.")
+                                st.error("תקלה בעדכון המחיקה מול השרת.")
