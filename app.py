@@ -14,15 +14,38 @@ st.set_page_config(
     layout="wide"
 )
 
-# החלת עיצוב CSS מותאם אישית לתמיכה מלאה בעברית (RTL) ואסתטיקה של האפליקציה
+# החלת עיצוב CSS מותאם אישית לתמיכה מלאה בעברית (RTL) ואסתטיקה של האפליקציה + כפיית מצב בהיר
 st.markdown("""
     <style>
+    /* כפיית מצב בהיר (Light Mode) כפי שביקשת, ללא שינוי במבנה */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+    }
+    [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child {
+        background-color: #f8f9fa !important;
+    }
+    h1, h2, h3, h4, h5, h6, p, span, label, div.stMarkdown, [data-testid="stWidgetLabel"] p {
+        color: #111111 !important;
+    }
+    div[data-baseweb="select"] > div, div[data-baseweb="input"] > div, input, select, textarea {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+        border: 1px solid #cccccc !important;
+    }
+    span[data-baseweb="select"], div[role="listbox"], option, ul[role="listbox"] {
+        color: #111111 !important;
+        background-color: #ffffff !important;
+    }
+
+    /* הגדרות ה-CSS המקוריות שלך - ללא שינוי */
     body, .main, div.stMarkdown, div[data-testid="stWidgetLabel"] {
         direction: rtl !important;
         text-align: right !important;
     }
     div[data-testid="stDataEditor"] {
         direction: rtl !important;
+        background-color: #ffffff !important;
     }
     div[data-baseweb="slider"] {
         direction: ltr !important;
@@ -195,7 +218,7 @@ if 'project_groups' not in st.session_state:
         'sel_type': first_type, 
         'sel_dim': st.session_state.dynamic_catalog[first_type]["dimensions"][0], 
         'sel_thk': st.session_state.dynamic_catalog[first_type]["thicknesses"][0], 
-        'cuts': [{'length': 100.0, 'qty': 1}]
+        'cuts': [{'length': 100.0, 'qty': 1, 'angle': 'ישר / ישר (90°)'}]
     }]
 
 # =============================================================================
@@ -207,9 +230,10 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
         for _ in range(int(cut['qty'])):
             if cut['length'] > max_capacity: 
                 return None, f"אורך {cut['length']} חורג מאורך מוט מקסימלי ({max_capacity} ס\"מ)."
-            all_pieces.append(cut['length'])
+            # נשמור גם את הזווית לשימוש עתידי או תצוגה באלגוריתם
+            all_pieces.append({'length': cut['length'], 'angle': cut.get('angle', 'ישר / ישר (90°)')})
             
-    all_pieces.sort(reverse=True)
+    all_pieces.sort(key=lambda x: x['length'], reverse=True)
     bars = []
     
     for piece in all_pieces:
@@ -217,9 +241,9 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
         min_leftover = max_capacity + 1
         
         for idx, bar in enumerate(bars):
-            rem_space = max_capacity - sum(bar)
-            if rem_space >= piece:
-                leftover_after_placement = rem_space - piece
+            rem_space = max_capacity - sum(p['length'] for p in bar)
+            if rem_space >= piece['length']:
+                leftover_after_placement = rem_space - piece['length']
                 if leftover_after_placement < min_leftover:
                     min_leftover = leftover_after_placement
                     best_bar_idx = idx
@@ -233,17 +257,18 @@ def calculate_optimal_cutting(cuts_list, max_capacity):
 
 def display_visual_bars(bars_plan, max_bar_len):
     for b_id, bar_cuts in enumerate(bars_plan):
-        used_space = sum(bar_cuts)
+        used_space = sum(p['length'] for p in bar_cuts)
         leftover = max_bar_len - used_space
         st.markdown(f"**מוט #{b_id + 1} (פחת: {leftover:.1f} ס\"מ):**")
         
         bar_html = f"<div style='display: block; width: 100%; background-color: #e0e0e0; border-radius: 6px; margin: 6px 0; font-size:12px; font-weight:bold; color:white; overflow:hidden; border:1px solid #ccc;'>"
         for part in bar_cuts:
-            percentage = (part / max_bar_len) * 100
-            bar_html += f"<div style='display: inline-block; width: {percentage}%; background-color: #1976d2; text-align: center; padding: 6px 0; border-left: 2px solid #fff; float: right;'>{part}</div>"
+            percentage = (part['length'] / max_bar_len) * 100
+            lbl = f"{part['length']} [{part['angle']}]"
+            bar_html += f"<div style='display: inline-block; width: {percentage}%; background-color: #1976d2; text-align: center; padding: 6px 0; border-left: 2px solid #fff; float: right; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;' title='{lbl}'>{lbl}</div>"
         if leftover > 0:
             left_pct = (leftover / max_bar_len) * 100
-            bar_html += f"<div style='display: inline-block; width: {left_pct}%; background-color: #d32f2f; text-align: center; padding: 6px 0; float: right;'>פחת: {leftover:.1f}</div>"
+            bar_html += f"<div style='display: inline-block; width: {left_pct}%; background-color: #d32f2f; text-align: center; padding: 6px 0; float: right; overflow: hidden; white-space: nowrap;'>פחת: {leftover:.1f}</div>"
         bar_html += "<div style='clear: both;'></div></div>"
         
         st.markdown(bar_html, unsafe_allow_html=True)
@@ -251,16 +276,17 @@ def display_visual_bars(bars_plan, max_bar_len):
 def generate_html_bars_for_pdf(bars_plan, max_bar_len):
     html_str = ""
     for b_id, bar_cuts in enumerate(bars_plan):
-        used_space = sum(bar_cuts)
+        used_space = sum(p['length'] for p in bar_cuts)
         leftover = max_bar_len - used_space
         html_str += f"<div style='margin-top: 10px; font-weight: bold;'>מוט #{b_id + 1} (פחת: {leftover:.1f} ס\"מ):</div>"
         html_str += "<div style='width: 100%; background-color: #e0e0e0; border: 1px solid #ccc; height: 30px; border-radius: 4px; overflow: hidden; white-space: nowrap; margin-bottom: 10px;'>"
         for part in bar_cuts:
-            pct = (part / max_bar_len) * 100
-            html_str += f"<div style='display: inline-block; width: {pct}%; background-color: #1976d2; color: white; text-align: center; line-height: 30px; font-size: 12px; border-left: 1px solid white; box-sizing: border-box;'>{part} ס\"מ</div>"
+            pct = (part['length'] / max_bar_len) * 100
+            lbl = f"{part['length']} [{part['angle']}]"
+            html_str += f"<div style='display: inline-block; width: {pct}%; background-color: #1976d2; color: white; text-align: center; line-height: 30px; font-size: 11px; border-left: 1px solid white; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis;'>{lbl}</div>"
         if leftover > 0:
             left_pct = (leftover / max_bar_len) * 100
-            html_str += f"<div style='display: inline-block; width: {left_pct}%; background-color: #d32f2f; color: white; text-align: center; line-height: 30px; font-size: 12px; box-sizing: border-box;'>פחת: {leftover:.1f}</div>"
+            html_str += f"<div style='display: inline-block; width: {left_pct}%; background-color: #d32f2f; color: white; text-align: center; line-height: 30px; font-size: 11px; box-sizing: border-box; overflow: hidden;'>פחת: {leftover:.1f}</div>"
         html_str += "</div>"
     return html_str
 
@@ -271,7 +297,7 @@ def build_pdf_html_content(p_name, c_name, phone, addr, p_date, mult, iron_cost,
     <head>
         <meta charset="utf-8">
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 30px; line-height: 1.5; color: #333; direction: rtl; text-align: right; }}
+            body {{ font-family: Arial, sans-serif; margin: 30px; line-height: 1.5; color: #333; direction: rtl; text-align: right; background-color: #ffffff; }}
             .header {{ text-align: center; border-bottom: 3px solid #333; padding-bottom: 10px; margin-bottom: 30px; }}
             .section {{ margin-bottom: 25px; }}
             .section-title {{ background-color: #f0f2f6; padding: 8px; font-size: 16px; border-right: 5px solid #1976d2; font-weight: bold; margin-bottom: 15px; }}
@@ -454,7 +480,7 @@ elif st.session_state.current_page == "📊 חישוב פרויקט":
             'sel_type': first_type, 
             'sel_dim': st.session_state.dynamic_catalog[first_type]["dimensions"][0], 
             'sel_thk': st.session_state.dynamic_catalog[first_type]["thicknesses"][0], 
-            'cuts': [{'length': 100.0, 'qty': 1}]
+            'cuts': [{'length': 100.0, 'qty': 1, 'angle': 'ישר / ישר (90°)'}]
         })
         st.rerun()
 
@@ -489,17 +515,23 @@ elif st.session_state.current_page == "📊 חישוב פרויקט":
         st.markdown("##### רשימת חיתוכים נדרשים:")
         cuts_summary_text = ""
         for c_idx, cut in enumerate(group['cuts']):
-            cc1, cc2, cc3 = st.columns([3, 3, 1])
+            cc1, cc2, cc3, cc4 = st.columns([2.5, 2.5, 3, 1])
             cut['length'] = cc1.number_input("אורך מבוקש (ס\"מ):", min_value=0.1, value=float(cut['length']), key=f"l_{g_idx}_{c_idx}")
             cut['qty'] = cc2.number_input("כמות יחידות:", min_value=1, value=int(cut['qty']), key=f"q_{g_idx}_{c_idx}")
-            cuts_summary_text += f"<li>{cut['qty']} יחידות x {cut['length']} ס\"מ</li>"
             
-            if cc3.button("❌", key=f"dc_{g_idx}_{c_idx}"): 
+            # תוספת שדה הזווית לחיתוכים
+            angle_opts = ["ישר / ישר (90°)", "ישר / 45°", "45° / 45°"]
+            curr_angle = cut.get('angle', angle_opts[0])
+            cut['angle'] = cc3.selectbox("סוג קצוות (זווית):", angle_opts, index=angle_opts.index(curr_angle) if curr_angle in angle_opts else 0, key=f"ang_{g_idx}_{c_idx}")
+            
+            cuts_summary_text += f"<li>{cut['qty']} יחידות x {cut['length']} ס\"מ (חיתוך: {cut['angle']})</li>"
+            
+            if cc4.button("❌", key=f"dc_{g_idx}_{c_idx}"): 
                 group['cuts'].pop(c_idx)
                 st.rerun()
                 
         if st.button("➕ הוסף חיתוך נוסף לחומר זה", key=f"ac_{g_idx}"): 
-            group['cuts'].append({'length': 50.0, 'qty': 1})
+            group['cuts'].append({'length': 50.0, 'qty': 1, 'angle': 'ישר / ישר (90°)'})
             st.rerun()
 
         max_len = st.session_state.dynamic_catalog[group['sel_type']]['length']
@@ -689,8 +721,8 @@ else:
                         archived_iron_cost += group_cost
                         display_visual_bars(bars_plan, max_len)
                         
-                        # בניית סיכום החיתוכים לרשימה ב-PDF
-                        archive_cuts_text = "".join([f"<li>{c['qty']} יחידות x {c['length']} ס\"מ</li>" for c in group['cuts']])
+                        # בניית סיכום החיתוכים לרשימה ב-PDF (כולל זווית)
+                        archive_cuts_text = "".join([f"<li>{c['qty']} יחידות x {c['length']} ס\"מ (חיתוך: {c.get('angle', 'ישר / ישר (90°)')})</li>" for c in group['cuts']])
                         bars_html_archive_pdf = generate_html_bars_for_pdf(bars_plan, max_len)
                         pdf_archive_materials_html += f"""
                         <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background-color: #fafafa; border-radius: 6px;">
