@@ -86,7 +86,7 @@ def get_initial_catalog():
             "prices": {}
         },
         "ברזל זווית": {
-            "dimensions": ["20x20", "25x25", "30x30", "40x40", "50x50"},
+            "dimensions": ["20x20", "25x25", "30x30", "40x40", "50x50"],
             "thicknesses": ["3.0 מ\"מ", "4.0 מ\"מ", "5.0 מ\"מ"],
             "length": 600,
             "prices": {}
