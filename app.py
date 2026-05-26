@@ -7,41 +7,58 @@ import re
 from datetime import datetime
 
 # =============================================================================
-# 1. הגדרות עיצוב, כיווניות (RTL) וכפיית רקע לבן שלג
+# 1. הגדרות עיצוב, כיווניות (RTL) וכפיית ערכת נושא בהירה מוחלטת
 # =============================================================================
 st.set_page_config(
     page_title="מערכת תמחור וחיתוך - Elad Cohen Iron Art", 
     layout="wide"
 )
 
-# הזרקת CSS חזק במיוחד לתיקון כיווניות מימין לשמאל והעלמת כל זכר לצבע כהה
+# הזרקת CSS מקיף לדריסת המצב הכהה של הדפדפן, קביעת סיידבר אפרפר, ושדות בהירים
 st.markdown("""
     <style>
-    /* כפיית רקע לבן מוחלט וטקסט כהה על כל חלקי האפליקציה */
-    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"] {
+    /* כפיית רקע לבן מוחלט וטקסט כהה על מרכז האפליקציה */
+    html, body, .stApp, [data-testid="stAppViewContainer"] {
         background-color: #ffffff !important;
         color: #111111 !important;
     }
     
-    /* הגדרת כיווניות מימין לשמאל לכל הממשק והסיידבר */
-    [data-testid="stAppViewContainer"] {
-        direction: rtl !important;
+    /* עיצוב הסרגל הימני (Sidebar) - אפור בהיר ועדין להפרדה משאר העמוד */
+    [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child {
+        background-color: #f1f3f5 !important;
+        border-left: 1px solid #dee2e6 !important;
     }
-    [data-testid="stSidebar"] {
+    
+    /* הגדרת כיווניות מימין לשמאל (RTL) לכל הממשק והסיידבר */
+    [data-testid="stAppViewContainer"], [data-testid="stSidebar"] {
         direction: rtl !important;
     }
     
-    /* יישור טקסט וכותרות לימין */
+    /* יישור טקסט, תוויות וכותרות לימין */
     h1, h2, h3, h4, h5, h6, p, span, label, div.stMarkdown, [data-testid="stWidgetLabel"] p {
         text-align: right !important;
         direction: rtl !important;
         color: #111111 !important;
     }
     
-    /* כפיית רקע בהיר לתיבות קלט, כפתורים וסלקטורים */
-    input, select, textarea, div[role="listbox"], [data-baseweb="select"], button {
-        background-color: #f1f3f5 !important;
+    /* טיפול שורש בשדות הקלט, התיבות והסלקטורים - שלא יהיו שחורים בשום מצב */
+    div[data-baseweb="select"], div[data-baseweb="input"], input, select, textarea {
+        background-color: #ffffff !important;
         color: #111111 !important;
+        border: 1px solid #cccccc !important;
+    }
+    
+    /* תיקון צבע הטקסט הכתוב בתוך השדות ותפריטי הבחירה */
+    input, select, textarea, span[data-baseweb="select"], div[role="listbox"], option {
+        color: #111111 !important;
+        background-color: #ffffff !important;
+    }
+    
+    /* התאמת כפתורים */
+    button[data-testid="stBaseButton-secondary"], button[data-testid="stBaseButton-primary"] {
+        background-color: #e9ecef !important;
+        color: #111111 !important;
+        border: 1px solid #ced4da !important;
     }
     
     /* עיצוב לוח עריכת הנתונים והטבלאות ברקע לבן */
@@ -55,12 +72,12 @@ st.markdown("""
         direction: ltr !important;
     }
     
-    /* קופסאות חלוקה ובלוקים בהירים */
+    /* קופסאות חלוקה ובלוקים בהירים במרכז העמוד */
     .material-block {
         border: 1px solid #dcdcdc;
         padding: 20px;
         border-radius: 10px;
-        background-color: #f9f9f9;
+        background-color: #f8f9fa;
         margin-bottom: 20px;
         direction: rtl;
     }
@@ -68,17 +85,17 @@ st.markdown("""
     /* עיצוב פס המוט הויזואלי - עבה, כחול (מנוצל) ואדום (פחת) */
     .custom-bar-container {
         width: 100%;
-        background-color: #d32f2f; /* אדום - מסמל פחת */
+        background-color: #d32f2f; /* אדום - פחת */
         height: 35px;
         border-radius: 6px;
         margin: 10px 0;
         position: relative;
         overflow: hidden;
         box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
-        direction: ltr !important; /* שהפס יתמלא משמאל לימין בצורה הגיונית */
+        direction: ltr !important; /* זרימת מילוי משמאל לימין */
     }
     .custom-bar-fill {
-        background-color: #1565c0; /* כחול - מסמל חלק מנוצל */
+        background-color: #1565c0; /* כחול - מנוצל */
         height: 100%;
         transition: width 0.4s ease;
     }
@@ -182,7 +199,6 @@ def save_to_github(filename, data, commit_message="Update data"):
     r_put = requests.put(url, headers=headers, json=payload)
     return r_put.status_code in [200, 201]
 
-# יצירת דף ה-HTML להורדה
 def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, labor_c, final_q, materials_table_html):
     exp_rows = ""
     total_expenses_calc = 0.0
@@ -263,7 +279,7 @@ def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, lab
     """
     return html_template
 
-# טעינת נתונים ראשונית מהענן לתוך ה-Session State
+# טעינת נתונים ראשונית מהענן
 if "catalog" not in st.session_state:
     st.session_state.catalog = load_from_github("catalog.json", get_initial_catalog())
 
@@ -274,7 +290,7 @@ if "current_cuts" not in st.session_state:
     st.session_state.current_cuts = []
 
 # =============================================================================
-# 3. בניית סרגל הניווט והוצאות קבועות בצד ימין (Sidebar - RTL מוחלט)
+# 3. בניית סרגל הניווט והוצאות קבועות בצד ימין (Sidebar)
 # =============================================================================
 st.sidebar.markdown(f"<h2 style='text-align: center; color: #1E3A8A;'>Elad Cohen Iron Art 🛠️</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<hr>", unsafe_allow_html=True)
@@ -284,7 +300,6 @@ sidebar_page = st.sidebar.radio(
     options=["💰 מחירון ברזל ומלאי", "🏗️ חישוב פרויקט חדש", "📁 ארכיון פרויקטים"]
 )
 
-# הגדרת משתני ברירת מחדל קבועים לעבודה והוצאות
 labor_workers = 1
 labor_days = 1
 labor_daily_cost = 0.0
@@ -482,17 +497,15 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
                 used_length = b["total_length"] - b["remaining"]
                 utilization_pct = (used_length / b["total_length"]) * 100
                 
-                # כותרת המוט
                 st.markdown(f"<div style='margin-bottom: 2px; font-weight: bold;'>מוט מספר {idx+1} (600 ס\"מ) - ניצול: {int(utilization_pct)}%</div>", unsafe_allow_html=True)
                 
-                # פס חיתוך עבה ומחולק: כחול (בשימוש), אדום (פחת)
+                # הפס הגרפי העבה בכחול ואדום
                 st.markdown(f"""
                 <div class='custom-bar-container'>
                     <div class='custom-bar-fill' style='width: {utilization_pct}%;'></div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # פירוט החיתוכים המדויק מתחת למד הגרפי
                 cuts_labels = " ← ".join([f"✂️ <b>{c['length']} ס\"מ</b> ({c['group']}) [<span style='color:#555;'>{c['edges']}</span>]" for c in b["cuts"]])
                 st.markdown(f"<div style='padding-right:5px; margin-bottom:15px; font-size:0.95rem; color:#111;'><b>תוכנית החיתוך למוט:</b> {cuts_labels} | <span style='color:#d32f2f; font-weight:bold;'>שארית פחת: {b['remaining']} ס\"מ</span></div>", unsafe_allow_html=True)
 
@@ -502,7 +515,6 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
         df_summary_project = pd.DataFrame(summary_rows)
         st.dataframe(df_summary_project, use_container_width=True)
         
-        # חישוב סך ההוצאות הנלוות מסרגל הצד
         total_ext_expenses = sum(sidebar_expenses.values())
         labor_total_cost = labor_workers * labor_days * labor_daily_cost
         
