@@ -38,6 +38,30 @@ st.markdown("""
         background-color: #ffffff !important;
     }
 
+    /* -------- התיקון החדש: כפתורים בהירים וקריאים עם טקסט שחור -------- */
+    button, div[data-testid="stDownloadButton"] button, div[data-testid="stButton"] button {
+        background-color: #f0f2f6 !important;
+        color: #000000 !important;
+        border: 1px solid #adb5bd !important;
+    }
+    button p, div[data-testid="stDownloadButton"] button p {
+        color: #000000 !important;
+        font-weight: bold !important;
+    }
+    button:hover {
+        background-color: #e2e6ea !important;
+        border-color: #868e96 !important;
+    }
+    /* כפתורי שמירה/פעולה מרכזיים (אדומים) */
+    button[kind="primary"] {
+        background-color: #ff4b4b !important;
+        border-color: #ff4b4b !important;
+    }
+    button[kind="primary"] p {
+        color: #ffffff !important;
+    }
+    /* ------------------------------------------------------------- */
+
     /* הגדרות ה-CSS המקוריות שלך - ללא שינוי */
     body, .main, div.stMarkdown, div[data-testid="stWidgetLabel"] {
         direction: rtl !important;
