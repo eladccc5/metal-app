@@ -7,49 +7,62 @@ import re
 from datetime import datetime
 
 # =============================================================================
-# 1. הגדרות עיצוב ומערכת (RTL ומראה נקי)
+# 1. הגדרות עיצוב ומערכת (כפיית רקע לבן, RTL ומראה ויזואלי עשיר)
 # =============================================================================
 st.set_page_config(
     page_title="מערכת תמחור וחיתוך - Elad Cohen Iron Art", 
     layout="wide"
 )
 
-# החלת עיצוב CSS מותאם אישית לתמיכה מלאה בעברית (RTL) ואסתטיקה של האפליקציה
+# החלת עיצוב CSS מותאם אישית: כפיית רקע לבן, טקסט כהה, RTL ואלמנטים ויזואליים
 st.markdown("""
     <style>
-    body, .main, div.stMarkdown, div[data-testid="stWidgetLabel"] {
+    /* כפיית רקע לבן וטקסט כהה לכל האפליקציה */
+    .stApp {
+        background-color: #ffffff !important;
+        color: #333333 !important;
+    }
+    body, .main, div.stMarkdown, div[data-testid="stWidgetLabel"], h1, h2, h3, h4, h5, h6, p {
         direction: rtl !important;
         text-align: right !important;
+        color: #333333 !important;
     }
+    /* התאמת לוח עריכת הנתונים */
     div[data-testid="stDataEditor"] {
         direction: rtl !important;
+        background-color: #ffffff !important;
     }
+    /* שמירה על כיוון משמאל לימין רק לסליידרים */
     div[data-baseweb="slider"] {
         direction: ltr !important;
     }
+    /* בלוקים לבנים/אפרפרים בהירים לעיצוב רכיבים */
     .material-block {
-        border: 2px solid #f0f2f6;
+        border: 1px solid #e0e0e0;
         padding: 20px;
         border-radius: 10px;
-        background-color: #fafbfc;
+        background-color: #fcfcfc;
         margin-bottom: 20px;
         direction: rtl;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
-    .bar-display {
-        background-color: #f8f9fa;
-        border-right: 5px solid #2e7d32;
-        padding: 8px 12px;
-        margin: 5px 0;
-        border-radius: 0 4px 4px 0;
-        font-family: monospace;
-        font-size: 1.05rem;
-    }
-    .metric-box {
-        background-color: #f0f4f8;
+    /* עיצוב ויזואלי מודגש למוטות חיתוך */
+    .bar-container-box {
+        background-color: #f7f9fa;
+        border-right: 6px solid #2e7d32;
         padding: 15px;
+        margin: 12px 0;
+        border-radius: 4px 8px 8px 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    /* קוביות סיכום כלכלי */
+    .metric-box {
+        background-color: #f4f6f9;
+        border: 1px solid #e2e8f0;
+        padding: 18px;
         border-radius: 8px;
         text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -141,7 +154,7 @@ def save_to_github(filename, data, commit_message="Update data"):
     r_put = requests.put(url, headers=headers, json=payload)
     return r_put.status_code in [200, 201]
 
-# פונקציה מרכזית ליצירת תבנית ה-HTML להורדה (מתוקנת ללא משתנים חסרים)
+# פונקציה מרכזית ליצירת תבנית ה-HTML להורדה
 def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, labor_c, final_q, materials_table_html):
     exp_rows = ""
     total_expenses_calc = 0.0
@@ -160,7 +173,7 @@ def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, lab
         <meta charset="UTF-8">
         <title>דוח פרויקט - Elad Cohen Iron Art</title>
         <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; color: #333; line-height: 1.6; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; color: #333; line-height: 1.6; background-color: #fff; }}
             .header {{ text-align: center; border-bottom: 3px solid #1E3A8A; padding-bottom: 10px; margin-bottom: 30px; }}
             .header h1 {{ color: #1E3A8A; margin: 0; font-size: 28px; }}
             .header p {{ margin: 5px 0 0 0; color: #666; }}
@@ -358,13 +371,13 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
             st.rerun()
             
     st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: right;'>💰 שלב ב': הוצאות נלוות וחומרי עזר (אופציונלי)</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: right;'>🎨 שלב ב': הוצאות נלוות וחומרי עזר (צבע, הובלה, מנוף וכו')</h3>", unsafe_allow_html=True)
     
     with st.container():
         st.markdown("<div class='material-block'>", unsafe_allow_html=True)
         col_ex1, col_ex2, col_ex3 = st.columns([3, 2, 2])
         with col_ex1:
-            ex_name = st.text_input("תיאור ההוצאה / חומר עזר:", value="צבע יסוד ועליון למעקה")
+            ex_name = st.text_input("תיאור ההוצאה / חומר עזר:", value="הובלה ומנוף לאתר")
         with col_ex2:
             ex_cost = st.number_input("עלות כוללת בש\"ח (נטו):", min_value=0.0, value=0.0, step=50.0)
         with col_ex3:
@@ -375,8 +388,9 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
                     st.toast("ההוצאה הנלווית התווספה!")
         st.markdown("</div>", unsafe_allow_html=True)
         
+    # הצגה קבועה ומיידית של ההוצאות על המסך (שלא ייעלמו!)
     if st.session_state.expenses_list:
-        st.markdown("<h4 style='text-align: right;'>📋 רשימת עלויות חיצוניות וחומרי עזר נוספים</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: right;'>📋 רשימת עלויות חיצוניות וחומרי עזר שהוזנו</h4>", unsafe_allow_html=True)
         df_saved_expenses = pd.DataFrame(st.session_state.expenses_list)
         st.dataframe(df_saved_expenses, use_container_width=True)
         
@@ -431,7 +445,7 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
                 total_iron_cost = 0.0
                 summary_rows = []
                 
-                st.markdown("<h3 style='text-align: right; color: #2E7D32; margin-top:20px;'>📋 תוכנית חיתוך מפורטת לפי מוטות חומר גלם (6 מטר)</h3>", unsafe_allow_html=True)
+                st.markdown("<h3 style='text-align: right; color: #2E7D32; margin-top:20px;'>📊 תוכנית חיתוך מפורטת ותצוגה ויזואלית של המוטות (6 מ')</h3>", unsafe_allow_html=True)
                 
                 for mat_key, bars in optimized_results.items():
                     parts = mat_key.split("_")
@@ -454,11 +468,28 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
                         "פחת מצטבר (ס\"מ)": total_waste_mat
                     })
                     
-                    st.markdown(f"<h5 style='text-align: right; color:#1E3A8A; margin-top:10px;'>🔨 {cat} - מידה {dim} (עובי {thick}) | נדרשים {num_bars} מוטות סה\"כ:</h5>", unsafe_allow_html=True)
+                    st.markdown(f"<h5 style='text-align: right; color:#1E3A8A; margin-top:15px;'>🔨 {cat} - מידה {dim} (עובי {thick}) | נדרשים {num_bars} מוטות סה\"כ:</h5>", unsafe_allow_html=True)
                     
                     for idx, b in enumerate(bars):
-                        cuts_labels = " | ".join([f"{c['length']} ס\"מ ({c['group']}) [{c['edges']}]" for c in b["cuts"]])
-                        st.markdown(f"<div class='bar-display'><b>מוט מספר {idx+1}:</b> [{cuts_labels}] ➡️ <b>שארית פחת: {b['remaining']} ס\"מ</b></div>", unsafe_allow_html=True)
+                        used_length = b["total_length"] - b["remaining"]
+                        utilization_pct = int((used_length / b["total_length"]) * 100)
+                        
+                        # תצוגה ויזואלית עשירה באמצעות קופסה ופס התקדמות גרפי של המוט
+                        st.markdown(f"""
+                        <div class='bar-container-box'>
+                            <div style='display:flex; justify-content:space-between; margin-bottom:5px;'>
+                                <b>מוט מספר {idx+1} (אורך 600 ס"מ)</b>
+                                <span style='color:#2e7d32; font-weight:bold;'>ניצול: {utilization_pct}% ({used_length} ס"מ בשימוש)</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # מד התקדמות ויזואלי מובנה של Streamlit שמציג את אחוז הניצול של המוט
+                        st.progress(utilization_pct / 100.0)
+                        
+                        # פירוט החיתוכים המדויק מתחת למד הגרפי
+                        cuts_labels = " ← ".join([f"✂️ <b>{c['length']} ס\"מ</b> ({c['group']}) [<span style='color:#757575;'>{c['edges']}</span>]" for c in b["cuts"]])
+                        st.markdown(f"<div style='padding-right:15px; margin-bottom:15px; font-size:0.95rem;'><b>תוכנית החיתוך למוט זה:</b> {cuts_labels} | <span style='color:#d32f2f; font-weight:bold;'>שארית פחת: {b['remaining']} ס\"מ</span></div>", unsafe_allow_html=True)
 
                 st.markdown("<br><hr>", unsafe_allow_html=True)
                 st.markdown("<h3 style='text-align: right; color: #E65100;'>📊 דוח סיכום עלויות, פחת ותמחור סופי לפרויקט</h3>", unsafe_allow_html=True)
@@ -562,7 +593,6 @@ elif sidebar_page == "📁 ארכיון פרויקטים":
                 df_summary_archived_table = pd.DataFrame(archived_rows)
                 pdf_archive_materials_html = df_summary_archived_table.to_html(index=False, classes='table') if archived_rows else ""
                 
-                # עובד מושלם עם פונקציית הרינדור המעודכנת
                 archive_html_pdf_template = build_pdf_html_content(
                     p_title, project.get('client_name','-'), project.get('phone','-'), 
                     project.get('date','-'), project.get('multiplier', 1.5),
