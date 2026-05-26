@@ -7,62 +7,84 @@ import re
 from datetime import datetime
 
 # =============================================================================
-# 1. הגדרות עיצוב ומערכת (כפיית רקע לבן, RTL ומראה ויזואלי עשיר)
+# 1. הגדרות עיצוב ומערכת (RTL וכפיית רקע לבן מוחלט וצבעי מוטות)
 # =============================================================================
 st.set_page_config(
     page_title="מערכת תמחור וחיתוך - Elad Cohen Iron Art", 
     layout="wide"
 )
 
-# החלת עיצוב CSS מותאם אישית: כפיית רקע לבן, טקסט כהה, RTL ואלמנטים ויזואליים
+# כפיית רקע לבן שלג, טקסט כהה, RTL ועיצוב פסי מוטות עבים בכחול ואדום
 st.markdown("""
     <style>
-    /* כפיית רקע לבן וטקסט כהה לכל האפליקציה */
-    .stApp {
+    /* כפיית רקע לבן מוחלט וטקסט כהה על כל האפליקציה */
+    html, body, .stApp, [data-testid="stAppViewContainer"] {
         background-color: #ffffff !important;
-        color: #333333 !important;
+        color: #111111 !important;
     }
-    body, .main, div.stMarkdown, div[data-testid="stWidgetLabel"], h1, h2, h3, h4, h5, h6, p {
+    
+    /* תיקון צבעי טקסט וכיווניות לכל הרכיבים */
+    h1, h2, h3, h4, h5, h6, p, span, label, div.stMarkdown {
         direction: rtl !important;
         text-align: right !important;
-        color: #333333 !important;
+        color: #111111 !important;
     }
-    /* התאמת לוח עריכת הנתונים */
-    div[data-testid="stDataEditor"] {
+    
+    /* כפיית רקע לבן לתיבות קלט, סלקטורים וטבלאות שלא יהיו שחורים */
+    div[data-testid="stWidgetLabel"] p {
+        color: #111111 !important;
+    }
+    input, select, textarea, div[role="listbox"], [data-baseweb="select"] {
+        background-color: #f8f9fa !important;
+        color: #111111 !important;
+    }
+    
+    /* התאמת לוח עריכת הנתונים והטבלאות */
+    div[data-testid="stDataEditor"], div[data-testid="stDataFrame"] {
         direction: rtl !important;
         background-color: #ffffff !important;
     }
-    /* שמירה על כיוון משמאל לימין רק לסליידרים */
+    
+    /* סליידר שמאלה וימינה */
     div[data-baseweb="slider"] {
         direction: ltr !important;
     }
-    /* בלוקים לבנים/אפרפרים בהירים לעיצוב רכיבים */
+    
+    /* קופסאות חלוקה בהירות */
     .material-block {
-        border: 1px solid #e0e0e0;
+        border: 1px solid #dcdcdc;
         padding: 20px;
         border-radius: 10px;
-        background-color: #fcfcfc;
+        background-color: #f9f9f9;
         margin-bottom: 20px;
         direction: rtl;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
-    /* עיצוב ויזואלי מודגש למוטות חיתוך */
-    .bar-container-box {
-        background-color: #f7f9fa;
-        border-right: 6px solid #2e7d32;
-        padding: 15px;
-        margin: 12px 0;
-        border-radius: 4px 8px 8px 4px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    
+    /* עיצוב פס המוט הויזואלי החדש - עבה, כחול ואדום */
+    .custom-bar-container {
+        width: 100%;
+        background-color: #d32f2f; /* אדום - מסמל פחת/שארית */
+        height: 35px;
+        border-radius: 6px;
+        margin: 10px 0;
+        position: relative;
+        overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
     }
+    .custom-bar-fill {
+        background-color: #1565c0; /* כחול - מסמל חלק מנוצל בשימוש */
+        height: 100%;
+        transition: width 0.4s ease;
+    }
+    
     /* קוביות סיכום כלכלי */
     .metric-box {
-        background-color: #f4f6f9;
-        border: 1px solid #e2e8f0;
-        padding: 18px;
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        padding: 15px;
         border-radius: 8px;
         text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -154,16 +176,16 @@ def save_to_github(filename, data, commit_message="Update data"):
     r_put = requests.put(url, headers=headers, json=payload)
     return r_put.status_code in [200, 201]
 
-# פונקציה מרכזית ליצירת תבנית ה-HTML להורדה
+# יצירת דף ה-HTML להורדה
 def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, labor_c, final_q, materials_table_html):
     exp_rows = ""
     total_expenses_calc = 0.0
     if exp_dict:
-        for e in exp_dict:
-            cost_val = e.get('עלות (₪)', 0.0)
-            total_expenses_calc += cost_val
-            exp_rows += f"<tr><td>{e.get('תיאור','-')}</td><td>₪{cost_val:,.2f}</td></tr>"
-    else:
+        for item_name, cost_val in exp_dict.items():
+            if cost_val > 0:
+                total_expenses_calc += cost_val
+                exp_rows += f"<tr><td>{item_name}</td><td>₪{cost_val:,.2f}</td></tr>"
+    if exp_rows == "":
         exp_rows = "<tr><td colspan='2'>אין הוצאות נלוות נוספות לפרויקט זה</td></tr>"
         
     html_template = f"""
@@ -173,10 +195,10 @@ def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, lab
         <meta charset="UTF-8">
         <title>דוח פרויקט - Elad Cohen Iron Art</title>
         <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; color: #333; line-height: 1.6; background-color: #fff; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; color: #111; line-height: 1.6; background-color: #fff; }}
             .header {{ text-align: center; border-bottom: 3px solid #1E3A8A; padding-bottom: 10px; margin-bottom: 30px; }}
             .header h1 {{ color: #1E3A8A; margin: 0; font-size: 28px; }}
-            .header p {{ margin: 5px 0 0 0; color: #666; }}
+            .header p {{ margin: 5px 0 0 0; color: #555; }}
             .section-title {{ color: #1E3A8A; border-right: 4px solid #1E3A8A; padding-right: 10px; margin-top: 25px; margin-bottom: 15px; font-size: 18px; }}
             table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
             th, td {{ border: 1px solid #ddd; padding: 12px; text-align: right; }}
@@ -235,7 +257,7 @@ def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, lab
     """
     return html_template
 
-# טעינת נתונים ראשונית מהענן לתוך ה-Session State
+# טעינת נתונים ראשונית מהענן
 if "catalog" not in st.session_state:
     st.session_state.catalog = load_from_github("catalog.json", get_initial_catalog())
 
@@ -245,21 +267,40 @@ if "saved_projects" not in st.session_state:
 if "current_cuts" not in st.session_state:
     st.session_state.current_cuts = []
 
-if "expenses_list" not in st.session_state:
-    st.session_state.expenses_list = []
-
 # =============================================================================
-# 3. תפריט ניווט צידי עליון עם אייקונים ושם העסק
+# 3. בניית סרגל הניווט והוצאות קבועות בצד ימין (Sidebar)
 # =============================================================================
 st.sidebar.markdown(f"<h2 style='text-align: center; color: #1E3A8A;'>Elad Cohen Iron Art 🛠️</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<hr>", unsafe_allow_html=True)
 
-st.sidebar.markdown("<p style='text-align: right; font-weight: bold;'>ניווט בין עמודים:</p>", unsafe_allow_html=True)
 sidebar_page = st.sidebar.radio(
-    label="בחר עמוד להצגה",
-    options=["💰 מחירון ברזל ומלאי", "🏗️ חישוב פרויקט חדש", "📁 ארכיון פרויקטים"],
-    label_visibility="collapsed"
+    label="בחר עמוד להצגה:",
+    options=["💰 מחירון ברזל ומלאי", "🏗️ חישוב פרויקט חדש", "📁 ארכיון פרויקטים"]
 )
+
+# מגירות קבועות בסרגל הצדדי רק עבור עמוד החישוב
+labor_workers = 1
+labor_days = 1
+labor_daily_cost = 0.0
+profit_multiplier = 1.5
+sidebar_expenses = {}
+
+if sidebar_page == "🏗️ חישוב פרויקט חדש":
+    st.sidebar.markdown("### 👷 עלויות עבודה ורווח")
+    labor_workers = st.sidebar.number_input("כמות עובדים:", min_value=1, value=1, step=1)
+    labor_days = st.sidebar.number_input("ימי עבודה:", min_value=1, value=1, step=1)
+    labor_daily_cost = st.sidebar.number_input("עלות יומית לעובד (₪):", min_value=0.0, value=0.0, step=100.0)
+    profit_multiplier = st.sidebar.slider("מקדם תמחור סופי (רווח):", min_value=1.0, max_value=3.0, value=1.5, step=0.05)
+    
+    st.sidebar.markdown("<hr>", unsafe_allow_html=True)
+    st.sidebar.markdown("### 🎨 עלויות והוצאות נלוות (₪)")
+    sidebar_expenses["צבע בתנור"] = st.sidebar.number_input("צבע בתנור:", min_value=0.0, value=0.0, step=50.0)
+    sidebar_expenses["הובלה"] = st.sidebar.number_input("הובלה:", min_value=0.0, value=0.0, step=50.0)
+    sidebar_expenses["נגרות"] = st.sidebar.number_input("נגרות:", min_value=0.0, value=0.0, step=50.0)
+    sidebar_expenses["זגגות"] = st.sidebar.number_input("זגגות:", min_value=0.0, value=0.0, step=50.0)
+    sidebar_expenses["חיתוכי לייזר"] = st.sidebar.number_input("חיתוכי לייזר:", min_value=0.0, value=0.0, step=50.0)
+    sidebar_expenses["מנוף"] = st.sidebar.number_input("מנוף:", min_value=0.0, value=0.0, step=50.0)
+    sidebar_expenses["שונות"] = st.sidebar.number_input("שונות:", min_value=0.0, value=0.0, step=50.0)
 
 # =============================================================================
 # עמוד 1: ניהול ועריכת מחירון חומרי גלם
@@ -296,13 +337,13 @@ if sidebar_page == "💰 מחירון ברזל ומלאי":
             st.error("שגיאה בשמירה לענן. ודא שהטוקן תקין.")
 
 # =============================================================================
-# עמוד 2: חישוב פרויקט חדש, אופטימיזציית חיתוכים ותמחור
+# עמוד 2: חישוב פרויקט חדש ואופטימיזציית חיתוכים אוטומטית
 # =============================================================================
 elif sidebar_page == "🏗️ חישוב פרויקט חדש":
-    st.markdown("<h2 style='text-align: right; color: #1E3A8A;'>🏗️ תכנון פרויקט, אופטימיזציית חיתוך ותמחור</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: right; color: #1E3A8A;'>🏗️ תכנון פרויקט ואופטימיזציית חיתוך אוטומטית</h2>", unsafe_allow_html=True)
     
     st.markdown("<div class='material-block'>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: right;'>📋 פרטי הפרויקט הכלליים</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: right;'>📋 פרטי הלקוח והפרויקט</h4>", unsafe_allow_html=True)
     c_p1, c_p2, c_p3, c_p4 = st.columns(4)
     with c_p1:
         project_title = st.text_input("שם הפרויקט / לקוח:", value="מעקה דקורטיבי - משפחת כהן")
@@ -312,54 +353,42 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
         client_phone = st.text_input("טלפון:", value="050-1234567")
     with c_p4:
         project_date = st.text_input("תאריך פרויקט:", value=datetime.now().strftime("%Y-%m-%d"))
-        
-    st.markdown("<h4 style='text-align: right; margin-top:15px;'>👷 עלויות עבודה עצמית ורווח</h4>", unsafe_allow_html=True)
-    c_w1, c_w2, c_w3, c_w4 = st.columns(4)
-    with c_w1:
-        labor_workers = st.number_input("כמות עובדים:", min_value=1, value=1, step=1)
-    with c_w2:
-        labor_days = st.number_input("ימי עבודה:", min_value=1, value=1, step=1)
-    with c_w3:
-        labor_daily_cost = st.number_input("עלות יומית לעובד (₪):", min_value=0.0, value=0.0, step=100.0)
-    with c_w4:
-        profit_multiplier = st.slider("מקדם תמחור סופי (רווח וחומרי עזר):", min_value=1.0, max_value=3.0, value=1.5, step=0.05)
     st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<h3 style='text-align: right;'>🔨 שלב א': הזנת רשימת חיתוכים (מוטות נדרשים)</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: right;'>🔨 הזנת רשימת חיתוכים (מוטות נדרשים)</h3>", unsafe_allow_html=True)
     
-    with st.container():
-        st.markdown("<div class='material-block'>", unsafe_allow_html=True)
-        col_in1, col_in2, col_in3, col_in4, col_in5, col_in6, col_in7 = st.columns([2, 1.5, 1.5, 1.5, 1.2, 1.5, 1.2])
+    st.markdown("<div class='material-block'>", unsafe_allow_html=True)
+    col_in1, col_in2, col_in3, col_in4, col_in5, col_in6, col_in7 = st.columns([2, 1.5, 1.5, 1.5, 1.2, 1.5, 1.2])
+    
+    with col_in1:
+        in_cat = st.selectbox("סוג ברזל:", list(st.session_state.catalog.keys()), key="add_cat")
+    with col_in2:
+        in_dim = st.selectbox("מידה (פרופיל/קוטר):", st.session_state.catalog[in_cat]["dimensions"], key="add_dim")
+    with col_in3:
+        in_thick = st.selectbox("עובי דופן:", st.session_state.catalog[in_cat]["thicknesses"], key="add_thick")
+    with col_in4:
+        in_length = st.number_input("אורך חיתוך (ס\"מ):", min_value=1.0, max_value=600.0, value=100.0, step=1.0)
+    with col_in5:
+        in_qty = st.number_input("כמות (יח'):", min_value=1, value=1, step=1)
+    with col_in6:
+        in_edges = st.selectbox("סוג קצוות (זוויות):", ["ישר / ישר (90°)", "ישר / 45°", "45° / 45°"], key="add_edges")
+    with col_in7:
+        in_group = st.text_input("שיוך/רכיב:", value="כללי", key="add_group")
         
-        with col_in1:
-            in_cat = st.selectbox("סוג ברזל:", list(st.session_state.catalog.keys()), key="add_cat")
-        with col_in2:
-            in_dim = st.selectbox("מידה (פרופיל/קוטר):", st.session_state.catalog[in_cat]["dimensions"], key="add_dim")
-        with col_in3:
-            in_thick = st.selectbox("עובי דופן:", st.session_state.catalog[in_cat]["thicknesses"], key="add_thick")
-        with col_in4:
-            in_length = st.number_input("אורך חיתוך (ס\"מ):", min_value=1.0, max_value=600.0, value=100.0, step=1.0)
-        with col_in5:
-            in_qty = st.number_input("כמות (יח'):", min_value=1, value=1, step=1)
-        with col_in6:
-            in_edges = st.selectbox("סוג קצוות (זוויות):", ["ישר / ישר (90°)", "ישר / 45°", "45° / 45°"], key="add_edges")
-        with col_in7:
-            in_group = st.text_input("שיוך/רכיב:", value="כללי", key="add_group")
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("➕ הוסף חיתוך לרשימה", use_container_width=True, type="secondary"):
-            st.session_state.current_cuts.append({
-                "קטגוריה": in_cat,
-                "מידה": in_dim,
-                "עובי דופן": in_thick,
-                "אורך (ס\"מ)": in_length,
-                "כמות": in_qty,
-                "סוג קצוות": in_edges,
-                "קבוצת שיוך": in_group
-            })
-            st.toast("החיתוך נוסף בהצלחה!")
-        st.markdown("</div>", unsafe_allow_html=True)
-        
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("➕ הוסף חיתוך לרשימה", use_container_width=True, type="secondary"):
+        st.session_state.current_cuts.append({
+            "קטגוריה": in_cat,
+            "מידה": in_dim,
+            "עובי דופן": in_thick,
+            "אורך (ס\"מ)": in_length,
+            "כמות": in_qty,
+            "סוג קצוות": in_edges,
+            "קבוצת שיוך": in_group
+        })
+        st.toast("החיתוך נוסף בהצלחה!")
+    st.markdown("</div>", unsafe_allow_html=True)
+    
     if st.session_state.current_cuts:
         st.markdown("<h4 style='text-align: right;'>📋 רשימת חיתוכי הברזל המבוקשים בפרויקט</h4>", unsafe_allow_html=True)
         df_saved_cuts = pd.DataFrame(st.session_state.current_cuts)
@@ -369,190 +398,159 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
         if st.button("🗑️ נקה את כל רשימת החיתוכים", type="primary"):
             st.session_state.current_cuts = []
             st.rerun()
-            
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: right;'>🎨 שלב ב': הוצאות נלוות וחומרי עזר (צבע, הובלה, מנוף וכו')</h3>", unsafe_allow_html=True)
-    
-    with st.container():
-        st.markdown("<div class='material-block'>", unsafe_allow_html=True)
-        col_ex1, col_ex2, col_ex3 = st.columns([3, 2, 2])
-        with col_ex1:
-            ex_name = st.text_input("תיאור ההוצאה / חומר עזר:", value="הובלה ומנוף לאתר")
-        with col_ex2:
-            ex_cost = st.number_input("עלות כוללת בש\"ח (נטו):", min_value=0.0, value=0.0, step=50.0)
-        with col_ex3:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("➕ הוסף הוצאה לפרויקט", use_container_width=True):
-                if ex_name and ex_cost > 0:
-                    st.session_state.expenses_list.append({"תיאור": ex_name, "עלות (₪)": ex_cost})
-                    st.toast("ההוצאה הנלווית התווספה!")
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-    # הצגה קבועה ומיידית של ההוצאות על המסך (שלא ייעלמו!)
-    if st.session_state.expenses_list:
-        st.markdown("<h4 style='text-align: right;'>📋 רשימת עלויות חיצוניות וחומרי עזר שהוזנו</h4>", unsafe_allow_html=True)
-        df_saved_expenses = pd.DataFrame(st.session_state.expenses_list)
-        st.dataframe(df_saved_expenses, use_container_width=True)
-        
-        if st.button("🗑️ נקה את רשימת ההוצאות", key="clear_exp"):
-            st.session_state.expenses_list = []
-            st.rerun()
 
+    # =============================================================================
+    # לוגיקת החישוב והאופטימיזציה האוטומטית (מתבצעת מיידית ללא צורך בכפתור הרצה)
+    # =============================================================================
     if st.session_state.current_cuts:
         st.markdown("<hr>", unsafe_allow_html=True)
-        if st.button("🚀 הרץ אופטימיזציית חיתוך, חישוב פחת והפקת הצעת מחיר", type="primary", use_container_width=True):
-            
-            def run_cutting_optimization(cuts_list, stock_length=600):
-                flat_cuts = []
-                for c in cuts_list:
-                    for _ in range(c["כמות"]):
-                        flat_cuts.append({
-                            "length": c["אורך (ס\"מ)"],
-                            "group": c["קבוצת שיוך"],
-                            "edges": c["סוג קצוות"],
-                            "key": f"{c['קטגוריה']}_{c['מידה']}_{c['עובי דופן']}"
-                        })
-                
-                flat_cuts.sort(key=lambda x: x["length"], reverse=True)
-                
-                grouped_cuts = {}
-                for cut in flat_cuts:
-                    grouped_cuts.setdefault(cut["key"], []).append(cut)
-                    
-                result_bars = {}
-                for mat_key, mat_cuts in grouped_cuts.items():
-                    bars = []
-                    for cut in mat_cuts:
-                        placed = False
-                        for b in bars:
-                            if b["remaining"] >= cut["length"]:
-                                b["cuts"].append(cut)
-                                b["remaining"] -= cut["length"]
-                                placed = True
-                                break
-                        if not placed:
-                            bars.append({
-                                "total_length": stock_length,
-                                "remaining": stock_length - cut["length"],
-                                "cuts": [cut]
-                            })
-                    result_bars[mat_key] = bars
-                return result_bars
-
-            with st.spinner("מחשב את חלוקת המוטות האופטימלית..."):
-                optimized_results = run_cutting_optimization(st.session_state.current_cuts)
-                
-                total_iron_cost = 0.0
-                summary_rows = []
-                
-                st.markdown("<h3 style='text-align: right; color: #2E7D32; margin-top:20px;'>📊 תוכנית חיתוך מפורטת ותצוגה ויזואלית של המוטות (6 מ')</h3>", unsafe_allow_html=True)
-                
-                for mat_key, bars in optimized_results.items():
-                    parts = mat_key.split("_")
-                    cat, dim, thick = parts[0], parts[1], parts[2]
-                    
-                    price_per_unit = st.session_state.catalog[cat]["prices"].get(f"{dim}_{thick}", 0.0)
-                    num_bars = len(bars)
-                    cost_for_material = num_bars * price_per_unit
-                    total_iron_cost += cost_for_material
-                    
-                    total_waste_mat = sum([b["remaining"] for b in bars])
-                    
-                    summary_rows.append({
-                        "קטגוריה": cat,
-                        "מידה": dim,
-                        "עובי דופן": thick,
-                        "מוטות נדרשים (6 מ')": num_bars,
-                        "מחיר למוט (₪)": price_per_unit,
-                        "עלות סך הכל (₪)": cost_for_material,
-                        "פחת מצטבר (ס\"מ)": total_waste_mat
+        
+        def run_cutting_optimization(cuts_list, stock_length=600):
+            flat_cuts = []
+            for c in cuts_list:
+                for _ in range(c["כמות"]):
+                    flat_cuts.append({
+                        "length": c["אורך (ס\"מ)"],
+                        "group": c["קבוצת שיוך"],
+                        "edges": c["סוג קצוות"],
+                        "key": f"{c['קטגוריה']}_{c['מידה']}_{c['עובי דופן']}"
                     })
-                    
-                    st.markdown(f"<h5 style='text-align: right; color:#1E3A8A; margin-top:15px;'>🔨 {cat} - מידה {dim} (עובי {thick}) | נדרשים {num_bars} מוטות סה\"כ:</h5>", unsafe_allow_html=True)
-                    
-                    for idx, b in enumerate(bars):
-                        used_length = b["total_length"] - b["remaining"]
-                        utilization_pct = int((used_length / b["total_length"]) * 100)
-                        
-                        # תצוגה ויזואלית עשירה באמצעות קופסה ופס התקדמות גרפי של המוט
-                        st.markdown(f"""
-                        <div class='bar-container-box'>
-                            <div style='display:flex; justify-content:space-between; margin-bottom:5px;'>
-                                <b>מוט מספר {idx+1} (אורך 600 ס"מ)</b>
-                                <span style='color:#2e7d32; font-weight:bold;'>ניצול: {utilization_pct}% ({used_length} ס"מ בשימוש)</span>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # מד התקדמות ויזואלי מובנה של Streamlit שמציג את אחוז הניצול של המוט
-                        st.progress(utilization_pct / 100.0)
-                        
-                        # פירוט החיתוכים המדויק מתחת למד הגרפי
-                        cuts_labels = " ← ".join([f"✂️ <b>{c['length']} ס\"מ</b> ({c['group']}) [<span style='color:#757575;'>{c['edges']}</span>]" for c in b["cuts"]])
-                        st.markdown(f"<div style='padding-right:15px; margin-bottom:15px; font-size:0.95rem;'><b>תוכנית החיתוך למוט זה:</b> {cuts_labels} | <span style='color:#d32f2f; font-weight:bold;'>שארית פחת: {b['remaining']} ס\"מ</span></div>", unsafe_allow_html=True)
+            
+            flat_cuts.sort(key=lambda x: x["length"], reverse=True)
+            
+            grouped_cuts = {}
+            for cut in flat_cuts:
+                grouped_cuts.setdefault(cut["key"], []).append(cut)
+                
+            result_bars = {}
+            for mat_key, mat_cuts in grouped_cuts.items():
+                bars = []
+                for cut in mat_cuts:
+                    placed = False
+                    for b in bars:
+                        if b["remaining"] >= cut["length"]:
+                            b["cuts"].append(cut)
+                            b["remaining"] -= cut["length"]
+                            placed = True
+                            break
+                    if not placed:
+                        bars.append({
+                            "total_length": stock_length,
+                            "remaining": stock_length - cut["length"],
+                            "cuts": [cut]
+                        })
+                    result_bars[mat_key] = bars
+            return result_bars
 
-                st.markdown("<br><hr>", unsafe_allow_html=True)
-                st.markdown("<h3 style='text-align: right; color: #E65100;'>📊 דוח סיכום עלויות, פחת ותמחור סופי לפרויקט</h3>", unsafe_allow_html=True)
+        optimized_results = run_cutting_optimization(st.session_state.current_cuts)
+        
+        total_iron_cost = 0.0
+        summary_rows = []
+        
+        st.markdown("<h3 style='text-align: right; color: #1565c0; margin-top:20px;'>📊 תוכנית חיתוך מפורטת ותצוגה ויזואלית של המוטות (כחול ואדום)</h3>", unsafe_allow_html=True)
+        
+        for mat_key, bars in optimized_results.items():
+            parts = mat_key.split("_")
+            cat, dim, thick = parts[0], parts[1], parts[2]
+            
+            price_per_unit = st.session_state.catalog[cat]["prices"].get(f"{dim}_{thick}", 0.0)
+            num_bars = len(bars)
+            cost_for_material = num_bars * price_per_unit
+            total_iron_cost += cost_for_material
+            
+            total_waste_mat = sum([b["remaining"] for b in bars])
+            
+            summary_rows.append({
+                "קטגוריה": cat,
+                "מידה": dim,
+                "עובי דופן": thick,
+                "מוטות נדרשים (6 מ')": num_bars,
+                "מחיר למוט (₪)": price_per_unit,
+                "עלות סך הכל (₪)": cost_for_material,
+                "פחת מצטבר (ס\"מ)": total_waste_mat
+            })
+            
+            st.markdown(f"<h5 style='text-align: right; color:#1E3A8A; margin-top:15px;'>🔨 {cat} - מידה {dim} (עובי {thick}) | נדרשים {num_bars} מוטות סה\"כ:</h5>", unsafe_allow_html=True)
+            
+            for idx, b in enumerate(bars):
+                used_length = b["total_length"] - b["remaining"]
+                utilization_pct = (used_length / b["total_length"]) * 100
                 
-                df_summary_project = pd.DataFrame(summary_rows)
-                st.dataframe(df_summary_project, use_container_width=True)
+                # פס חיתוך גרפי עבה ומחולק: כחול (בשימוש), אדום (פחת)
+                st.markdown(f"""
+                <div style='margin-bottom: 2px; font-weight: bold;'>מוט מספר {idx+1} (600 ס"מ) - ניצול: {int(utilization_pct)}%</div>
+                <div class='custom-bar-container'>
+                    <div class='custom-bar-fill' style='width: {utilization_pct}%;'></div>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                total_ext_expenses = sum([e["עלות (₪)"] for e in st.session_state.expenses_list])
-                labor_total_cost = labor_workers * labor_days * labor_daily_cost
-                
-                net_cost_project = total_iron_cost + total_ext_expenses + labor_total_cost
-                final_customer_quote = net_cost_project * profit_multiplier
-                
-                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                with col_m1:
-                    st.markdown(f"<div class='metric-box'><b>עלות חומרי גלם (ברזל)</b><br><span style='font-size:1.5rem; color:#2E7D32;'>₪{total_iron_cost:,.2f}</span></div>", unsafe_allow_html=True)
-                with col_m2:
-                    st.markdown(f"<div class='metric-box'><b>עלויות נלוות ועזר</b><br><span style='font-size:1.5rem; color:#1E3A8A;'>₪{total_ext_expenses:,.2f}</span></div>", unsafe_allow_html=True)
-                with col_m3:
-                    st.markdown(f"<div class='metric-box'><b>עלות עבודה עצמית נטו</b><br><span style='font-size:1.5rem; color:#7B1FA2;'>₪{labor_total_cost:,.2f}</span></div>", unsafe_allow_html=True)
-                with col_m4:
-                    st.markdown(f"<div class='metric-box' style='background-color:#FFF3E0; border:2px solid #FF9800;'><b>💰 הצעת מחיר מומלצת ללקוח</b><br><span style='font-size:1.6rem; font-weight:bold; color:#E65100;'>₪{final_customer_quote:,.2f}</span></div>", unsafe_allow_html=True)
-                
-                materials_html_table = df_summary_project.to_html(index=False, classes='table')
-                
-                html_pdf_template = build_pdf_html_content(
-                    project_title, client_name, client_phone, project_date, profit_multiplier,
-                    total_iron_cost, st.session_state.expenses_list, labor_total_cost, final_customer_quote,
-                    materials_html_table
-                )
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                clean_filename = re.sub(r'[\/*?:"<>|]', "", project_title)
-                
-                st.download_button(
-                    label="📄 הורד דף סיכום פרויקט מוכן להדפסה (PDF/HTML)",
-                    data=html_pdf_template,
-                    file_name=f"סיכום_פרויקט_{clean_filename}.html",
-                    mime="text/html",
-                    use_container_width=True
-                )
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("📁 שמור פרויקט זה לארכיון פרויקטים בענן", use_container_width=True):
-                    project_data_to_archive = {
-                        "title": project_title,
-                        "client_name": client_name,
-                        "phone": client_phone,
-                        "date": project_date,
-                        "multiplier": profit_multiplier,
-                        "iron_cost": total_iron_cost,
-                        "expenses": st.session_state.expenses_list,
-                        "labor_cost": labor_total_cost,
-                        "final_quote": final_customer_quote,
-                        "summary_rows": summary_rows,
-                        "cuts_snapshot": st.session_state.current_cuts
-                    }
-                    
-                    st.session_state.saved_projects.append(project_data_to_archive)
-                    if save_to_github("saved_projects.json", st.session_state.saved_projects, f"הוספת פרויקט {project_title} לארכיון"):
-                        st.success(f"🎯 פרויקט '{project_title}' נשמר בהצלחה בארכיון הענן!")
-                    else:
-                        st.error("שגיאה בשמירת הפרויקט בארכיון הענן.")
+                # פירוט החיתוכים המדויק מתחת למד הגרפי
+                cuts_labels = " ← ".join([f"✂️ <b>{c['length']} ס\"מ</b> ({c['group']}) [<span style='color:#555;'>{c['edges']}</span>]" for c in b["cuts"]])
+                st.markdown(f"<div style='padding-right:5px; margin-bottom:15px; font-size:0.95rem; color:#111;'><b>תוכנית החיתוך למוט:</b> {cuts_labels} | <span style='color:#d32f2f; font-weight:bold;'>שארית פחת: {b['remaining']} ס\"מ</span></div>", unsafe_allow_html=True)
+
+        st.markdown("<br><hr>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: right; color: #E65100;'>📊 דוח סיכום עלויות ותמחור סופי לפרויקט</h3>", unsafe_allow_html=True)
+        
+        df_summary_project = pd.DataFrame(summary_rows)
+        st.dataframe(df_summary_project, use_container_width=True)
+        
+        # חישוב סך ההוצאות הנלוות שהוזנו בסרגל הצדדי
+        total_ext_expenses = sum(sidebar_expenses.values())
+        labor_total_cost = labor_workers * labor_days * labor_daily_cost
+        
+        net_cost_project = total_iron_cost + total_ext_expenses + labor_total_cost
+        final_customer_quote = net_cost_project * profit_multiplier
+        
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            st.markdown(f"<div class='metric-box'><b>עלות חומרי גלם (ברזל)</b><br><span style='font-size:1.5rem; color:#1565c0; font-weight:bold;'>₪{total_iron_cost:,.2f}</span></div>", unsafe_allow_html=True)
+        with col_m2:
+            st.markdown(f"<div class='metric-box'><b>עלויות נלוות (סרגל צד)</b><br><span style='font-size:1.5rem; color:#2e7d32; font-weight:bold;'>₪{total_ext_expenses:,.2f}</span></div>", unsafe_allow_html=True)
+        with col_m3:
+            st.markdown(f"<div class='metric-box'><b>עלות עבודה עצמית נטו</b><br><span style='font-size:1.5rem; color:#7B1FA2; font-weight:bold;'>₪{labor_total_cost:,.2f}</span></div>", unsafe_allow_html=True)
+        with col_m4:
+            st.markdown(f"<div class='metric-box' style='background-color:#FFF3E0; border:2px solid #FF9800;'><b>💰 הצעת מחיר מומלצת ללקוח</b><br><span style='font-size:1.6rem; font-weight:bold; color:#E65100;'>₪{final_customer_quote:,.2f}</span></div>", unsafe_allow_html=True)
+        
+        materials_html_table = df_summary_project.to_html(index=False, classes='table')
+        
+        html_pdf_template = build_pdf_html_content(
+            project_title, client_name, client_phone, project_date, profit_multiplier,
+            total_iron_cost, sidebar_expenses, labor_total_cost, final_customer_quote,
+            materials_html_table
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        clean_filename = re.sub(r'[\/*?:"<>|]', "", project_title)
+        
+        st.download_button(
+            label="📄 הורד דף סיכום פרויקט מוכן להדפסה (PDF/HTML)",
+            data=html_pdf_template,
+            file_name=f"סיכום_פרויקט_{clean_filename}.html",
+            mime="text/html",
+            use_container_width=True
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("📁 שמור פרויקט זה לארכיון פרויקטים בענן", use_container_width=True):
+            project_data_to_archive = {
+                "title": project_title,
+                "client_name": client_name,
+                "phone": client_phone,
+                "date": project_date,
+                "multiplier": profit_multiplier,
+                "iron_cost": total_iron_cost,
+                "expenses": sidebar_expenses,
+                "labor_cost": labor_total_cost,
+                "final_quote": final_customer_quote,
+                "summary_rows": summary_rows,
+                "cuts_snapshot": st.session_state.current_cuts
+            }
+            
+            st.session_state.saved_projects.append(project_data_to_archive)
+            if save_to_github("saved_projects.json", st.session_state.saved_projects, f"הוספת פרויקט {project_title} לארכיון"):
+                st.success(f"🎯 פרויקט '{project_title}' נשמר בהצלחה בארכיון הענן!")
+            else:
+                st.error("שגיאה בשמירת הפרויקט בארכיון הענן.")
 
 # =============================================================================
 # עמוד 3: ארכיון פרויקטים שמורים וטעינת נתוני עבר
@@ -579,14 +577,13 @@ elif sidebar_page == "📁 ארכיון פרויקטים":
                     
                 col_actions1, col_actions2, col_actions3 = st.columns(3)
                 
-                if col_actions1.button("🔄 טען חיתוכים לעמוד עבודה", key=f"load_{p_idx}", use_container_width=True):
+                if col_actions1.button("🔄 טען חיתוכים והוצאות לעמוד עבודה", key=f"load_{p_idx}", use_container_width=True):
                     st.session_state.current_cuts = project.get("cuts_snapshot", [])
-                    st.session_state.expenses_list = project.get("expenses", [])
-                    st.success("הנתונים נטענו בהצלחה! כנס לטאב 'חישוב פרויקט חדש' לצפייה והרצה.")
+                    st.success("הנתונים נטענו בהצלחה! כנס לטאב 'חישוב פרויקט חדש' לצפייה.")
                     st.rerun()
                     
                 archived_iron_cost = project.get('iron_cost', 0.0)
-                archive_ext_pdf_dict = project.get('expenses', [])
+                archive_ext_pdf_dict = project.get('expenses', {})
                 labor_total_cost_archived = project.get('labor_cost', 0.0)
                 final_quote_archived = project.get('final_quote', 0.0)
                 
