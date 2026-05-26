@@ -141,12 +141,15 @@ def save_to_github(filename, data, commit_message="Update data"):
     r_put = requests.put(url, headers=headers, json=payload)
     return r_put.status_code in [200, 201]
 
-# פונקציה מרכזית ליצירת תבנית ה-HTML להורדה
+# פונקציה מרכזית ליצירת תבנית ה-HTML להורדה (מתוקנת ללא משתנים חסרים)
 def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, labor_c, final_q, materials_table_html):
     exp_rows = ""
+    total_expenses_calc = 0.0
     if exp_dict:
         for e in exp_dict:
-            exp_rows += f"<tr><td>{e.get('תיאור','-')}</td><td>₪{e.get('עלות (₪)',0.0):,.2f}</td></tr>"
+            cost_val = e.get('עלות (₪)', 0.0)
+            total_expenses_calc += cost_val
+            exp_rows += f"<tr><td>{e.get('תיאור','-')}</td><td>₪{cost_val:,.2f}</td></tr>"
     else:
         exp_rows = "<tr><td colspan='2'>אין הוצאות נלוות נוספות לפרויקט זה</td></tr>"
         
@@ -205,7 +208,7 @@ def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, lab
         <div class="section-title">💰 סיכום כלכלי הצעת מחיר סופית ללקוח</div>
         <div class="summary-box">
             <div class="summary-row"><span>עלות חומרי גלם (ברזל נטו):</span> <span>₪{iron_c:,.2f}</span></div>
-            <div class="summary-row"><span>עלות חומרי עזר והוצאות חיצוניות:</span> <span>₪{exp_rows if type(exp_dict)==float else 0.0:,.2f}</span></div>
+            <div class="summary-row"><span>עלות חומרי עזר והוצאות חיצוניות:</span> <span>₪{total_expenses_calc:,.2f}</span></div>
             <div class="summary-row"><span>עלות ימי עבודה (עבודה עצמית):</span> <span>₪{labor_c:,.2f}</span></div>
             <div class="summary-row"><span>מקדם רווח מוגדר:</span> <span>x{mult}</span></div>
             <div class="summary-row final-price"><span>סך הכל הצעת מחיר סופית ללקוח (כולל מע"מ):</span> <span>₪{final_q:,.2f}</span></div>
@@ -422,7 +425,7 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
                     result_bars[mat_key] = bars
                 return result_bars
 
-            with st.spinner("מחשב את חלוקת המוטות الأופטימלית..."):
+            with st.spinner("מחשב את חלוקת המוטות האופטימלית..."):
                 optimized_results = run_cutting_optimization(st.session_state.current_cuts)
                 
                 total_iron_cost = 0.0
@@ -559,7 +562,7 @@ elif sidebar_page == "📁 ארכיון פרויקטים":
                 df_summary_archived_table = pd.DataFrame(archived_rows)
                 pdf_archive_materials_html = df_summary_archived_table.to_html(index=False, classes='table') if archived_rows else ""
                 
-                # התיקון כאן: שליחת 10 פרמטרים בדיוק לפונקציה
+                # עובד מושלם עם פונקציית הרינדור המעודכנת
                 archive_html_pdf_template = build_pdf_html_content(
                     p_title, project.get('client_name','-'), project.get('phone','-'), 
                     project.get('date','-'), project.get('multiplier', 1.5),
