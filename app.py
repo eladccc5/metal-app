@@ -7,50 +7,55 @@ import re
 from datetime import datetime
 
 # =============================================================================
-# 1. הגדרות עיצוב ומערכת (RTL וכפיית רקע לבן מוחלט וצבעי מוטות)
+# 1. הגדרות עיצוב, כיווניות (RTL) וכפיית רקע לבן שלג
 # =============================================================================
 st.set_page_config(
     page_title="מערכת תמחור וחיתוך - Elad Cohen Iron Art", 
     layout="wide"
 )
 
-# כפיית רקע לבן שלג, טקסט כהה, RTL ועיצוב פסי מוטות עבים בכחול ואדום
+# הזרקת CSS חזק במיוחד לתיקון כיווניות מימין לשמאל והעלמת כל זכר לצבע כהה
 st.markdown("""
     <style>
-    /* כפיית רקע לבן מוחלט וטקסט כהה על כל האפליקציה */
-    html, body, .stApp, [data-testid="stAppViewContainer"] {
+    /* כפיית רקע לבן מוחלט וטקסט כהה על כל חלקי האפליקציה */
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"] {
         background-color: #ffffff !important;
         color: #111111 !important;
     }
     
-    /* תיקון צבעי טקסט וכיווניות לכל הרכיבים */
-    h1, h2, h3, h4, h5, h6, p, span, label, div.stMarkdown {
+    /* הגדרת כיווניות מימין לשמאל לכל הממשק והסיידבר */
+    [data-testid="stAppViewContainer"] {
         direction: rtl !important;
+    }
+    [data-testid="stSidebar"] {
+        direction: rtl !important;
+    }
+    
+    /* יישור טקסט וכותרות לימין */
+    h1, h2, h3, h4, h5, h6, p, span, label, div.stMarkdown, [data-testid="stWidgetLabel"] p {
         text-align: right !important;
+        direction: rtl !important;
         color: #111111 !important;
     }
     
-    /* כפיית רקע לבן לתיבות קלט, סלקטורים וטבלאות שלא יהיו שחורים */
-    div[data-testid="stWidgetLabel"] p {
-        color: #111111 !important;
-    }
-    input, select, textarea, div[role="listbox"], [data-baseweb="select"] {
-        background-color: #f8f9fa !important;
+    /* כפיית רקע בהיר לתיבות קלט, כפתורים וסלקטורים */
+    input, select, textarea, div[role="listbox"], [data-baseweb="select"], button {
+        background-color: #f1f3f5 !important;
         color: #111111 !important;
     }
     
-    /* התאמת לוח עריכת הנתונים והטבלאות */
-    div[data-testid="stDataEditor"], div[data-testid="stDataFrame"] {
+    /* עיצוב לוח עריכת הנתונים והטבלאות ברקע לבן */
+    div[data-testid="stDataEditor"], div[data-testid="stDataFrame"], div[data-testid="stTable"] {
         direction: rtl !important;
         background-color: #ffffff !important;
     }
     
-    /* סליידר שמאלה וימינה */
+    /* שמירה על כיוון משמאל לימין אך ורק עבור סליידרים */
     div[data-baseweb="slider"] {
         direction: ltr !important;
     }
     
-    /* קופסאות חלוקה בהירות */
+    /* קופסאות חלוקה ובלוקים בהירים */
     .material-block {
         border: 1px solid #dcdcdc;
         padding: 20px;
@@ -60,19 +65,20 @@ st.markdown("""
         direction: rtl;
     }
     
-    /* עיצוב פס המוט הויזואלי החדש - עבה, כחול ואדום */
+    /* עיצוב פס המוט הויזואלי - עבה, כחול (מנוצל) ואדום (פחת) */
     .custom-bar-container {
         width: 100%;
-        background-color: #d32f2f; /* אדום - מסמל פחת/שארית */
+        background-color: #d32f2f; /* אדום - מסמל פחת */
         height: 35px;
         border-radius: 6px;
         margin: 10px 0;
         position: relative;
         overflow: hidden;
         box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        direction: ltr !important; /* שהפס יתמלא משמאל לימין בצורה הגיונית */
     }
     .custom-bar-fill {
-        background-color: #1565c0; /* כחול - מסמל חלק מנוצל בשימוש */
+        background-color: #1565c0; /* כחול - מסמל חלק מנוצל */
         height: 100%;
         transition: width 0.4s ease;
     }
@@ -257,7 +263,7 @@ def build_pdf_html_content(title, name, phone, date, mult, iron_c, exp_dict, lab
     """
     return html_template
 
-# טעינת נתונים ראשונית מהענן
+# טעינת נתונים ראשונית מהענן לתוך ה-Session State
 if "catalog" not in st.session_state:
     st.session_state.catalog = load_from_github("catalog.json", get_initial_catalog())
 
@@ -268,17 +274,17 @@ if "current_cuts" not in st.session_state:
     st.session_state.current_cuts = []
 
 # =============================================================================
-# 3. בניית סרגל הניווט והוצאות קבועות בצד ימין (Sidebar)
+# 3. בניית סרגל הניווט והוצאות קבועות בצד ימין (Sidebar - RTL מוחלט)
 # =============================================================================
 st.sidebar.markdown(f"<h2 style='text-align: center; color: #1E3A8A;'>Elad Cohen Iron Art 🛠️</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<hr>", unsafe_allow_html=True)
 
 sidebar_page = st.sidebar.radio(
-    label="בחר עמוד להצגה:",
+    label="ניווט בתפריט המערכת:",
     options=["💰 מחירון ברזל ומלאי", "🏗️ חישוב פרויקט חדש", "📁 ארכיון פרויקטים"]
 )
 
-# מגירות קבועות בסרגל הצדדי רק עבור עמוד החישוב
+# הגדרת משתני ברירת מחדל קבועים לעבודה והוצאות
 labor_workers = 1
 labor_days = 1
 labor_daily_cost = 0.0
@@ -334,10 +340,10 @@ if sidebar_page == "💰 מחירון ברזל ומלאי":
         if save_to_github("catalog.json", st.session_state.catalog, f"עדכון מחירון {selected_cat}"):
             st.success(f"🎯 מחירון {selected_cat} עודכן ונשמר בהצלחה בענן!")
         else:
-            st.error("שגיאה בשמירה לענן. ודא שהטוקן תקין.")
+            st.error("שגיאה בשמירה לענן.")
 
 # =============================================================================
-# עמוד 2: חישוב פרויקט חדש ואופטימיזציית חיתוכים אוטומטית
+# עמוד 2: חישוב פרויקט חדש ואופטימיזציית חיתוכים אוטומטית מיידית
 # =============================================================================
 elif sidebar_page == "🏗️ חישוב פרויקט חדש":
     st.markdown("<h2 style='text-align: right; color: #1E3A8A;'>🏗️ תכנון פרויקט ואופטימיזציית חיתוך אוטומטית</h2>", unsafe_allow_html=True)
@@ -387,8 +393,8 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
             "קבוצת שיוך": in_group
         })
         st.toast("החיתוך נוסף בהצלחה!")
-    st.markdown("</div>", unsafe_allow_html=True)
-    
+        st.rerun()
+        
     if st.session_state.current_cuts:
         st.markdown("<h4 style='text-align: right;'>📋 רשימת חיתוכי הברזל המבוקשים בפרויקט</h4>", unsafe_allow_html=True)
         df_saved_cuts = pd.DataFrame(st.session_state.current_cuts)
@@ -400,7 +406,7 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
             st.rerun()
 
     # =============================================================================
-    # לוגיקת החישוב והאופטימיזציה האוטומטית (מתבצעת מיידית ללא צורך בכפתור הרצה)
+    # לוגיקת החישוב והאופטימיזציה האוטומטית המיידית
     # =============================================================================
     if st.session_state.current_cuts:
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -476,9 +482,11 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
                 used_length = b["total_length"] - b["remaining"]
                 utilization_pct = (used_length / b["total_length"]) * 100
                 
-                # פס חיתוך גרפי עבה ומחולק: כחול (בשימוש), אדום (פחת)
+                # כותרת המוט
+                st.markdown(f"<div style='margin-bottom: 2px; font-weight: bold;'>מוט מספר {idx+1} (600 ס\"מ) - ניצול: {int(utilization_pct)}%</div>", unsafe_allow_html=True)
+                
+                # פס חיתוך עבה ומחולק: כחול (בשימוש), אדום (פחת)
                 st.markdown(f"""
-                <div style='margin-bottom: 2px; font-weight: bold;'>מוט מספר {idx+1} (600 ס"מ) - ניצול: {int(utilization_pct)}%</div>
                 <div class='custom-bar-container'>
                     <div class='custom-bar-fill' style='width: {utilization_pct}%;'></div>
                 </div>
@@ -494,7 +502,7 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
         df_summary_project = pd.DataFrame(summary_rows)
         st.dataframe(df_summary_project, use_container_width=True)
         
-        # חישוב סך ההוצאות הנלוות שהוזנו בסרגל הצדדי
+        # חישוב סך ההוצאות הנלוות מסרגל הצד
         total_ext_expenses = sum(sidebar_expenses.values())
         labor_total_cost = labor_workers * labor_days * labor_daily_cost
         
@@ -549,6 +557,7 @@ elif sidebar_page == "🏗️ חישוב פרויקט חדש":
             st.session_state.saved_projects.append(project_data_to_archive)
             if save_to_github("saved_projects.json", st.session_state.saved_projects, f"הוספת פרויקט {project_title} לארכיון"):
                 st.success(f"🎯 פרויקט '{project_title}' נשמר בהצלחה בארכיון הענן!")
+                st.rerun()
             else:
                 st.error("שגיאה בשמירת הפרויקט בארכיון הענן.")
 
