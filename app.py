@@ -189,7 +189,7 @@ elif menu == "ארכיון פרויקטים שמורים":
             saved_cuts = proj.get("cuts", [])
             if saved_cuts:
                 df_saved_cuts = pd.DataFrame(saved_cuts)
-                df_saved_cuts.columns = ["סוג החומר", "אורך חיתוך (ס"מ)", "כמות יחידות", "קבוצת שיוך"]
+              df_saved_cuts.columns = ["סוג החומר", "אורך חיתוך (ס"מ)", "כמות יחידות", "קבוצת שיוך"]
                 st.dataframe(df_saved_cuts, use_container_width=True)
             
             # כפתור מחיקה מהארכיון
