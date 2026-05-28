@@ -189,5 +189,46 @@
                 ]
             }
         ]
+    },
+    {
+        "project_name": "שולחן לירין",
+        "client_name": "ירין  אלמודאי",
+        "phone": "052-6510085 ",
+        "address": "ירושךים ",
+        "date": "2026-05-28",
+        "multiplier": 3.0,
+        "labor_data": {
+            "num_workers": 1,
+            "days_of_work": 1,
+            "daily_wage": 800.0
+        },
+        "external_expenses": {
+            "powder": 200.0,
+            "laser": 0.0,
+            "transport": 100.0,
+            "crane": 0.0,
+            "carpentry": 0.0,
+            "glazing": 0.0,
+            "other": 0.0
+        },
+        "groups_data": [
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "20x20",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 79.0,
+                        "qty": 4,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 50.0,
+                        "qty": 9,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            }
+        ]
     }
 ]
