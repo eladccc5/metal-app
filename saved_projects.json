@@ -1,1 +1,87 @@
-[]
+[
+    {
+        "project_name": "דחת סורג לגיל ",
+        "client_name": "גיל",
+        "phone": "",
+        "address": "החלוץ 70 בית הכרם ",
+        "date": "2026-06-09",
+        "multiplier": 3.0,
+        "labor_data": {
+            "num_workers": 2,
+            "days_of_work": 2,
+            "daily_wage": 800.0
+        },
+        "external_expenses": {
+            "powder": 350.0,
+            "laser": 0.0,
+            "transport": 0.0,
+            "crane": 0.0,
+            "carpentry": 0.0,
+            "glazing": 0.0,
+            "other": 300.0
+        },
+        "groups_data": [
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "40x40",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 232.0,
+                        "qty": 1,
+                        "angle": "ישר / ישר (90°)"
+                    },
+                    {
+                        "length": 88.0,
+                        "qty": 2,
+                        "angle": "ישר / ישר (90°)"
+                    },
+                    {
+                        "length": 93.5,
+                        "qty": 2,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 229.0,
+                        "qty": 4,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 92.0,
+                        "qty": 2,
+                        "angle": "45° / 45°"
+                    }
+                ]
+            },
+            {
+                "sel_type": "פרופיל מלבני",
+                "sel_dim": "80x40",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 287.0,
+                        "qty": 1,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 240.0,
+                        "qty": 2,
+                        "angle": "ישר / 45°"
+                    }
+                ]
+            },
+            {
+                "sel_type": "מוט מרובע מלא",
+                "sel_dim": "14x14",
+                "sel_thk": "מלא",
+                "cuts": [
+                    {
+                        "length": 221.0,
+                        "qty": 21,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            }
+        ]
+    }
+]
