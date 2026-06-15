@@ -83,5 +83,56 @@
                 ]
             }
         ]
+    },
+    {
+        "project_name": "לאבא",
+        "client_name": "אבא",
+        "phone": "052-6510085 ",
+        "address": "ירושךים",
+        "date": "2026-06-15",
+        "multiplier": 3.0,
+        "labor_data": {
+            "num_workers": 1,
+            "days_of_work": 1,
+            "daily_wage": 500.0
+        },
+        "external_expenses": {
+            "powder": 200.0,
+            "laser": 0.0,
+            "transport": 0.0,
+            "crane": 0.0,
+            "carpentry": 0.0,
+            "glazing": 0.0,
+            "other": 0.0
+        },
+        "groups_data": [
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "40x40",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 118.0,
+                        "qty": 1,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 235.8,
+                        "qty": 2,
+                        "angle": "ישר / 45°"
+                    },
+                    {
+                        "length": 229.5,
+                        "qty": 4,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 54.1,
+                        "qty": 4,
+                        "angle": "45° / 45°"
+                    }
+                ]
+            }
+        ]
     }
 ]
