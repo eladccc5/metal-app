@@ -134,5 +134,126 @@
                 ]
             }
         ]
+    },
+    {
+        "project_name": "יעקב אלטרס",
+        "client_name": "יעקב אלטרס ",
+        "phone": "",
+        "address": "אפרתה 33 ",
+        "date": "2026-07-08",
+        "multiplier": 3.0,
+        "labor_data": {
+            "num_workers": 1,
+            "days_of_work": 3,
+            "daily_wage": 600.0
+        },
+        "external_expenses": {
+            "powder": 350.0,
+            "laser": 0.0,
+            "transport": 0.0,
+            "crane": 0.0,
+            "carpentry": 0.0,
+            "glazing": 0.0,
+            "other": 0.0
+        },
+        "groups_data": [
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "30x30",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 105.0,
+                        "qty": 2,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 133.0,
+                        "qty": 2,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 48.5,
+                        "qty": 4,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 126.0,
+                        "qty": 4,
+                        "angle": "45° / 45°"
+                    }
+                ]
+            },
+            {
+                "sel_type": "מוט מרובע מלא",
+                "sel_dim": "14x14",
+                "sel_thk": "מלא",
+                "cuts": [
+                    {
+                        "length": 120.0,
+                        "qty": 6,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            },
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "40x40",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 93.0,
+                        "qty": 8,
+                        "angle": "ישר / 45°"
+                    },
+                    {
+                        "length": 8.0,
+                        "qty": 8,
+                        "angle": "ישר / 45°"
+                    }
+                ]
+            },
+            {
+                "sel_type": "פרופיל מלבני",
+                "sel_dim": "40x20",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 278.0,
+                        "qty": 2,
+                        "angle": "ישר / ישר (90°)"
+                    },
+                    {
+                        "length": 84.6,
+                        "qty": 6,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            },
+            {
+                "sel_type": "שטוח",
+                "sel_dim": "40 מ\"מ",
+                "sel_thk": "5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 84.6,
+                        "qty": 6,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            },
+            {
+                "sel_type": "מוט מרובע מלא",
+                "sel_dim": "12x12",
+                "sel_thk": "מלא",
+                "cuts": [
+                    {
+                        "length": 60.0,
+                        "qty": 48,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            }
+        ]
     }
 ]
