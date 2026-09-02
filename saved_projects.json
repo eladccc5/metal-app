@@ -255,5 +255,107 @@
                 ]
             }
         ]
+    },
+    {
+        "project_name": "דלת סורג לורדה",
+        "client_name": "",
+        "phone": "",
+        "address": "",
+        "date": "2026-09-02",
+        "multiplier": 3.0,
+        "labor_data": {
+            "num_workers": 2,
+            "days_of_work": 3,
+            "daily_wage": 550.0
+        },
+        "external_expenses": {
+            "powder": 300.0,
+            "laser": 0.0,
+            "transport": 0.0,
+            "crane": 0.0,
+            "carpentry": 0.0,
+            "glazing": 0.0,
+            "other": 0.0
+        },
+        "groups_data": [
+            {
+                "sel_type": "פרופיל מלבני",
+                "sel_dim": "60x40",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 210.5,
+                        "qty": 2,
+                        "angle": "ישר / 45°"
+                    },
+                    {
+                        "length": 221.5,
+                        "qty": 2,
+                        "angle": "45° / 45°"
+                    }
+                ]
+            },
+            {
+                "sel_type": "פרופיל מרובע",
+                "sel_dim": "30x30",
+                "sel_thk": "1.5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 207.5,
+                        "qty": 2,
+                        "angle": "ישר / ישר (90°)"
+                    },
+                    {
+                        "length": 197.0,
+                        "qty": 2,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 70.5,
+                        "qty": 3,
+                        "angle": "45° / 45°"
+                    },
+                    {
+                        "length": 69.0,
+                        "qty": 4,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            },
+            {
+                "sel_type": "שטוח",
+                "sel_dim": "30 מ\"מ",
+                "sel_thk": "5 מ\"מ",
+                "cuts": [
+                    {
+                        "length": 64.5,
+                        "qty": 4,
+                        "angle": "ישר / ישר (90°)"
+                    },
+                    {
+                        "length": 69.0,
+                        "qty": 8,
+                        "angle": "ישר / ישר (90°)"
+                    },
+                    {
+                        "length": 197.0,
+                        "qty": 1,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            },
+            {
+                "sel_type": "מוט עגול מלא",
+                "sel_dim": "14 מ\"מ",
+                "sel_thk": "מלא",
+                "cuts": [
+                    {
+                        "length": 191.0,
+                        "qty": 18,
+                        "angle": "ישר / ישר (90°)"
+                    }
+                ]
+            }
+        ]
     }
 ]
